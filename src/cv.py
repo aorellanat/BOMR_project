@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from node import *
+
 # ----------------- #
 # TODO:
 # 4. Detect Thymio robot (position and orientation)
