@@ -186,6 +186,7 @@ def main():
             map_coords = detect_map(frame, MAP_MAX_WIDTH, MAP_MAX_HEIGHT, draw_arucos=True)
             if len(map_coords) == 0:
                 print(f'No map detected: only {len(map_coords)} corners found')
+
             map_detection = False
             obstacles_detection = True
 
@@ -209,28 +210,30 @@ def main():
             if goal_coords:
                 draw_goal(map_frame, goal_coords)
 
+            # Step 3: Path planning
+            if path_planning:
+                start_coords, _ = detect_thymio(map_frame)
+
+                start_node_center = (start_coords[0] // GRID_SIZE, start_coords[1] // GRID_SIZE)
+                goal_node_center = (goal_coords[0] // GRID_SIZE, goal_coords[1] // GRID_SIZE)
+
+                if start_coords and goal_coords:
+                    start_node = Node(start_node_center)
+                    goal_node = Node(goal_node_center)
+
+                    # Call path planning here: <------ Path planning
+                    # astar_path = astar(start_goal, end_goal)
+                    # draw_path(astar_path)
+
+                path_planning = False
+
+            # Step 4: Detect the Thymio
+            if start_motion:
+                thymio_coords, thymio_angle = detect_thymio(map_frame) # ------> Important: Here you have the position, and angle of the thymio
+
             # Reshape map before display it
             map_frame = cv2.resize(map_frame, (MAP_WIDTH_TO_DISPLAY, MAP_HEIGHT_TO_DISPLAY))
             cv2.imshow('Map', map_frame)
-
-        if path_planning:
-            start_coords, _ = detect_thymio(map_frame)
-
-            start_node_center = (start_coords[0] // GRID_SIZE, start_coords[1] // GRID_SIZE)
-            goal_node_center = (goal_coords[0] // GRID_SIZE, goal_coords[1] // GRID_SIZE)
-
-            if start_coords and goal_coords:
-                start_node = Node(start_node_center)
-                goal_node = Node(goal_node_center)
-
-                # Call path planning here: <------ Path planning
-                # astar_path = astar(start_goal, end_goal)
-                # draw_path(astar_path)
-
-            path_planning = False
-
-        if start_motion:
-            thymio_coords, thymio_angle = detect_thymio(map_frame) # ------> Important: Here you have the position, and angle of the thymio
 
         cv2.imshow('frame', frame_copy)
 
@@ -263,6 +266,9 @@ def main():
             goal_coords = None
             thymio_coords = None
             thymio_angle = None
+            start_motion = False
+            path_planning = False
+            map_detection = False
 
     camera.release()
     cv2.destroyAllWindows()
