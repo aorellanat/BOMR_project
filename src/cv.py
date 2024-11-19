@@ -5,7 +5,6 @@ from node import *
 
 # ----------------- #
 # TODO:
-# 5. Detect goal coordinates
 # 6. Document the code
 # 7. Add code to replicate the results with and image
 # ----------------- #
@@ -59,10 +58,29 @@ def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
         return map_coords
 
 
-def detect_obstacles(frame):
+def detect_obstacles_and_goal(frame):
     img_gray = preprocess_obstacles(frame)
     contours, _ = cv2.findContours(img_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    return contours
+    obstacle_contours = []
+    goal_coords = None
+
+    for contour in contours:
+        approx = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+
+        print(f'Approx: {len(approx)}')
+
+        if len(approx) > 8:
+            M = cv2.moments(contour)
+            goal_coords = (int(M['m10'] / M['m00']), int(M['m01'] / M['m00']))
+        else:
+            obstacle_contours.append(contour)
+
+    return obstacle_contours, goal_coords
+
+
+def draw_goal(frame, goal_coords):
+    cv2.circle(frame, goal_coords, 20, (0, 255, 0), -1)
+    cv2.putText(frame, 'Goal', goal_coords, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
 
 
 def draw_obstacles(frame, obstacles_contours, grid_size, draw_contours=False):
@@ -131,10 +149,6 @@ def detect_thymio(frame):
     return thymio_coords, thymio_angle
 
 
-def detect_goal(frame):
-    pass
-
-
 def main():
     # -------- Constants -------- #
     CAMERA_ID = 0
@@ -149,6 +163,7 @@ def main():
     map_coords = []
     obstacles_contours = []
 
+    goal_coords = None
     thymio_coords = None
     thymio_angle = None
 
@@ -182,15 +197,18 @@ def main():
 
             # Step 2: Detect the obstacles inside the map
             if obstacles_detection:
-                obstacles_contours = detect_obstacles(map_frame)
+                obstacles_contours, goal_coords = detect_obstacles_and_goal(map_frame)
                 obstacles_detection = False
             
             if len(obstacles_contours) > 0:
                 draw_obstacles(map_frame, obstacles_contours, GRID_SIZE, draw_contours=False)
 
+            if goal_coords:
+                draw_goal(map_frame, goal_coords)
+
             cv2.imshow('Map', map_frame)
 
-        thymio_coords, thymio_angle = detect_thymio(frame_copy) # ------> Important: Here you have the position, and angle of the thymio
+        # thymio_coords, thymio_angle = detect_thymio(frame_copy) # ------> Important: Here you have the position, and angle of the thymio
 
         cv2.imshow('frame', frame_copy)
 
@@ -212,6 +230,15 @@ def main():
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print('Closing the program...')
             break
+
+        # 5. Reset variables
+        if cv2.waitKey(1) & 0xFF == ord('r'):
+            print('Resetting variables...')
+            map_coords = []
+            obstacles_contours = []
+            goal_coords = None
+            thymio_coords = None
+            thymio_angle = None
 
     camera.release()
     cv2.destroyAllWindows()
