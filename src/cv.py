@@ -5,11 +5,9 @@ from node import *
 
 # ----------------- #
 # TODO:
-# 4. Detect Thymio robot (position and orientation)
 # 5. Detect goal coordinates
-# 6. Merge with path planning (A* algorithm)
-# 7. Document the code
-# 8. Add code to replicate the results with and image
+# 6. Document the code
+# 7. Add code to replicate the results with and image
 # ----------------- #
 def preprocess_map(frame):
     img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -95,7 +93,42 @@ def draw_obstacles(frame, obstacles_contours, grid_size, draw_contours=False):
 
 
 def detect_thymio(frame):
-    pass
+    img_gray = preprocess_map(frame)
+
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
+    parameters = cv2.aruco.DetectorParameters()
+    detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
+
+    corners, ids, rejected = detector.detectMarkers(img_gray)
+
+    thymio_coords = None
+    thymio_angle = None
+
+    if ids is not None:
+        for aruco_id, corners in zip(ids, corners):
+            aruco_id = np.squeeze(aruco_id)
+            if aruco_id == 1:
+                cv2.aruco.drawDetectedMarkers(frame, [corners], aruco_id)
+
+                corners = np.squeeze(corners)
+
+                thymio_center_x = int((corners[0][0] + corners[2][0]) // 2)
+                thymio_center_y = int((corners[0][1] + corners[2][1]) // 2)
+
+                thymio_coords = (thymio_center_x, thymio_center_y)
+                cv2.circle(frame, thymio_coords, 20, (0, 0, 255), -1)
+
+                # Important: Angle calculation, please modify it if needed
+                c_o = thymio_center_x - corners[0][0]
+                c_a = thymio_center_y - corners[0][1]
+                thymio_angle = np.arctan2(c_a, c_o)
+
+    if thymio_coords:
+        cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
+        cv2.putText(frame, f'Thymio angle rad: {thymio_angle}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
+        cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle)}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
+
+    return thymio_coords, thymio_angle
 
 
 def detect_goal(frame):
@@ -115,6 +148,9 @@ def main():
 
     map_coords = []
     obstacles_contours = []
+
+    thymio_coords = None
+    thymio_angle = None
 
     frame_copy = None
 
@@ -153,6 +189,8 @@ def main():
                 draw_obstacles(map_frame, obstacles_contours, GRID_SIZE, draw_contours=False)
 
             cv2.imshow('Map', map_frame)
+
+        thymio_coords, thymio_angle = detect_thymio(frame_copy) # ------> Important: Here you have the position, and angle of the thymio
 
         cv2.imshow('frame', frame_copy)
 
