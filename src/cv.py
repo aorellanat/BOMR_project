@@ -3,11 +3,7 @@ import numpy as np
 
 from node import *
 
-# ----------------- #
-# TODO:
-# 6. Document the code
-# 7. Add code to replicate the results with and image
-# ----------------- #
+
 def preprocess_map(frame):
     img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     img_median = cv2.medianBlur(img_gray, 3)
@@ -69,6 +65,7 @@ def detect_obstacles_and_goal(frame):
 
         print(f'Approx: {len(approx)}')
 
+        # If the shape is a circle, it is the goal
         if len(approx) > 8:
             M = cv2.moments(contour)
             goal_coords = (int(M['m10'] / M['m00']), int(M['m01'] / M['m00']))
@@ -156,9 +153,15 @@ def main():
     MAP_MAX_HEIGHT = 600
     MAP_MAX_WIDTH = 800
     GRID_SIZE = 30 # Size of a grid cell in pixels
+
+    MAP_WIDTH_TO_DISPLAY = 500
+    MAP_HEIGHT_TO_DISPLAY = 400
+
     # -------- Variables -------- #
     map_detection = False
     obstacles_detection = False
+    path_planning = False
+    start_motion = False
 
     map_coords = []
     obstacles_contours = []
@@ -195,7 +198,7 @@ def main():
             matrix = cv2.getPerspectiveTransform(map_coords, pts2)
             map_frame = cv2.warpPerspective(frame, matrix, (MAP_MAX_WIDTH, MAP_MAX_HEIGHT))
 
-            # Step 2: Detect the obstacles inside the map
+            # Step 2: Detect the obstacles inside the map and the goal
             if obstacles_detection:
                 obstacles_contours, goal_coords = detect_obstacles_and_goal(map_frame)
                 obstacles_detection = False
@@ -206,9 +209,28 @@ def main():
             if goal_coords:
                 draw_goal(map_frame, goal_coords)
 
+            # Reshape map before display it
+            map_frame = cv2.resize(map_frame, (MAP_WIDTH_TO_DISPLAY, MAP_HEIGHT_TO_DISPLAY))
             cv2.imshow('Map', map_frame)
 
-        # thymio_coords, thymio_angle = detect_thymio(frame_copy) # ------> Important: Here you have the position, and angle of the thymio
+        if path_planning:
+            start_coords, _ = detect_thymio(map_frame)
+
+            start_node_center = (start_coords[0] // GRID_SIZE, start_coords[1] // GRID_SIZE)
+            goal_node_center = (goal_coords[0] // GRID_SIZE, goal_coords[1] // GRID_SIZE)
+
+            if start_coords and goal_coords:
+                start_node = Node(start_node_center)
+                goal_node = Node(goal_node_center)
+
+                # Call path planning here: <------ Path planning
+                # astar_path = astar(start_goal, end_goal)
+                # draw_path(astar_path)
+
+            path_planning = False
+
+        if start_motion:
+            thymio_coords, thymio_angle = detect_thymio(map_frame) # ------> Important: Here you have the position, and angle of the thymio
 
         cv2.imshow('frame', frame_copy)
 
@@ -220,10 +242,12 @@ def main():
 
         # 2. Path planning
         if cv2.waitKey(1) & 0xFF == ord('p'):
+            path_planning = True
             print('Key p pressed')
 
         # 3. Start the project
         if cv2.waitKey(1) & 0xFF == ord('s'):
+            start_motion = True
             print('Key s pressed')
 
         # 4. Quit the program
