@@ -54,7 +54,7 @@ def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
         return map_coords
 
 
-def detect_obstacles_and_goal(frame):
+def detect_obstacles_and_goal(frame, padding_obstacles):
     canny_img = preprocess_obstacles(frame)
     contours, hierarchy = cv2.findContours(canny_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     obstacle_contours = []
@@ -64,12 +64,23 @@ def detect_obstacles_and_goal(frame):
     for i, contour in enumerate(contours):
         if hierarchy[0][i][3] != -1 and cv2.contourArea(contour) > 1000:
             epsilon = 0.01 * cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, epsilon, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True).squeeze()
 
             if len(approx) > 10:
                 (x,y), _ = cv2.minEnclosingCircle(contour)
                 goal_coords = (int(x), int(y))
             else:
+                M = cv2.moments(contour)
+                if M["m00"] == 0:
+                    centroid = np.array([0, 0])
+                else:
+                    centroid = np.array([int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])])
+
+                for j, vertex in enumerate(approx):
+                    vector = vertex - centroid
+                    unit_vector = vector / np.linalg.norm(vector)
+                    approx[j] = vertex + unit_vector * padding_obstacles
+    
                 obstacle_contours.append(approx)
 
     print(f'Number of obstacles: {len(obstacle_contours)}')
@@ -89,10 +100,8 @@ def draw_obstacles(frame, obstacles_contours):
     map_height, map_width = frame.shape[:2]
     
     for contour in obstacles_contours:
-        cv2.drawContours(img_mask, [contour], -1, 0, -1)
-
-    cv2.drawContours(frame, obstacles_contours, -1, (0, 255, 0), 2)
-    # cv2.imshow('mask', img_mask)
+        for vertex in contour:
+            cv2.circle(frame, tuple(vertex), 5, (0, 0, 255), -1)
 
 
 def detect_thymio(frame):
@@ -144,6 +153,7 @@ def main():
     MAP_WIDTH_TO_DISPLAY = 500
     MAP_HEIGHT_TO_DISPLAY = 400
 
+    PADDING_OBSTACLES = 30
     # -------- Variables -------- #
     map_detection = False
     obstacles_detection = False
@@ -188,7 +198,7 @@ def main():
 
             # Step 2: Detect the obstacles inside the map and the goal
             if obstacles_detection:
-                obstacles_contours, goal_coords = detect_obstacles_and_goal(map_frame)
+                obstacles_contours, goal_coords = detect_obstacles_and_goal(map_frame, PADDING_OBSTACLES)
                 obstacles_detection = False
             
             if len(obstacles_contours) > 0:
@@ -201,12 +211,9 @@ def main():
             if path_planning:
                 start_coords, _ = detect_thymio(map_frame)
 
-                start_node_cell = (start_coords[1] // GRID_SIZE, start_coords[0] // GRID_SIZE)
-                goal_node_cell = (goal_coords[1] // GRID_SIZE, goal_coords[0] // GRID_SIZE)
-
                 if start_coords and goal_coords:
-                    start_node = Node(start_node_cell)
-                    goal_node = Node(goal_node_cell)
+                    start_node = Node(start_coords)
+                    goal_node = Node(goal_coords)
 
                     # Call path planning here: <------ Path planning
                     # astar_path = astar(start_node, goal_node, mask_obstacles, nodes)
@@ -227,7 +234,6 @@ def main():
         # ---------- Keyboard options ---------- #
         # 1. Detect the map, obstacles and goal
         if cv2.waitKey(1) & 0xFF == ord('m'):
-            print('Key m pressed')
             map_detection = True
 
         # 2. Path planning
