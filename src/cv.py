@@ -75,13 +75,20 @@ def detect_obstacles_and_goal(frame):
     return obstacle_contours, goal_coords
 
 
-def draw_goal(frame, goal_coords):
+def draw_goal(frame, goal_coords, grid_size):
+    goal_coords = (goal_coords[0] // grid_size, goal_coords[1] // grid_size)
     cv2.circle(frame, goal_coords, 20, (0, 255, 0), -1)
     cv2.putText(frame, 'Goal', goal_coords, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
 
 
 def draw_obstacles(frame, obstacles_contours, grid_size, draw_contours=False):
     img_mask = np.zeros_like(frame)
+
+    map_height, map_width = frame.shape[:2]
+    n_rows = map_height // grid_size
+    n_columns = map_width // grid_size
+
+    grid = np.zeros((n_rows, n_columns), dtype=np.uint8)
     
     for contour in obstacles_contours:
         cv2.drawContours(img_mask, [contour], -1, 255, -1)
@@ -90,21 +97,19 @@ def draw_obstacles(frame, obstacles_contours, grid_size, draw_contours=False):
         cv2.drawContours(frame, obstacles_contours, -1, (0, 255, 0), 2)
         cv2.imshow('mask', img_mask)
 
-    img_height, img_width = frame.shape[:2]
-    for i in range(0, img_height, grid_size):
-        for j in range(0, img_width, grid_size):
-            x_start, y_start = j, i
+    for i in range(n_rows):
+        for j in range(n_columns):
+            x_start, y_start = j * grid_size, i * grid_size
             x_end, y_end = x_start + grid_size, y_start + grid_size
-            obstacle_found = False
 
             cell_mask = img_mask[y_start:y_end, x_start:x_end]
             if np.any(cell_mask):
-                obstacle_found = True
-
-            if obstacle_found:
+                grid[i, j] = 1
                 cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (255, 0, 0), -1)
             else:
                 cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (0, 0, 0), 1)
+
+    return grid
 
 
 def detect_thymio(frame):
@@ -133,7 +138,7 @@ def detect_thymio(frame):
                 thymio_coords = (thymio_center_x, thymio_center_y)
                 cv2.circle(frame, thymio_coords, 20, (0, 0, 255), -1)
 
-                # Important: Angle calculation, please modify it if needed
+                # Angle calculation, please modify it as you need
                 c_o = thymio_center_x - corners[0][0]
                 c_a = thymio_center_y - corners[0][1]
                 thymio_angle = np.arctan2(c_a, c_o)
@@ -165,6 +170,8 @@ def main():
 
     map_coords = []
     obstacles_contours = []
+    grid = np.zeros((MAP_MAX_HEIGHT // GRID_SIZE, MAP_MAX_WIDTH // GRID_SIZE))
+    print(f'Grid shape: \nRows: {grid.shape[0]}\nColumns: {grid.shape[1]}')
 
     goal_coords = None
     thymio_coords = None
@@ -205,24 +212,24 @@ def main():
                 obstacles_detection = False
             
             if len(obstacles_contours) > 0:
-                draw_obstacles(map_frame, obstacles_contours, GRID_SIZE, draw_contours=False)
+                grid = draw_obstacles(map_frame, obstacles_contours, GRID_SIZE)
 
             if goal_coords:
-                draw_goal(map_frame, goal_coords)
+                draw_goal(map_frame, goal_coords, GRID_SIZE)
 
             # Step 3: Path planning
             if path_planning:
                 start_coords, _ = detect_thymio(map_frame)
 
-                start_node_center = (start_coords[0] // GRID_SIZE, start_coords[1] // GRID_SIZE)
-                goal_node_center = (goal_coords[0] // GRID_SIZE, goal_coords[1] // GRID_SIZE)
+                start_node_cell = (start_coords[1] // GRID_SIZE, start_coords[0] // GRID_SIZE)
+                goal_node_cell = (goal_coords[1] // GRID_SIZE, goal_coords[0] // GRID_SIZE)
 
                 if start_coords and goal_coords:
-                    start_node = Node(start_node_center)
-                    goal_node = Node(goal_node_center)
+                    start_node = Node(start_node_cell)
+                    goal_node = Node(goal_node_cell)
 
                     # Call path planning here: <------ Path planning
-                    # astar_path = astar(start_goal, end_goal)
+                    # astar_path = astar(start_node, goal_node, mask_obstacles, nodes)
                     # draw_path(astar_path)
 
                 path_planning = False
