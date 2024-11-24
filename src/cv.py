@@ -55,61 +55,44 @@ def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
 
 
 def detect_obstacles_and_goal(frame):
-    img_gray = preprocess_obstacles(frame)
-    contours, _ = cv2.findContours(img_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    canny_img = preprocess_obstacles(frame)
+    contours, hierarchy = cv2.findContours(canny_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     obstacle_contours = []
     goal_coords = None
 
-    for contour in contours:
-        approx = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+    external_contour = None
+    for i, contour in enumerate(contours):
+        if hierarchy[0][i][3] != -1 and cv2.contourArea(contour) > 1000:
+            epsilon = 0.01 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
 
-        print(f'Approx: {len(approx)}')
+            if len(approx) > 10:
+                (x,y), _ = cv2.minEnclosingCircle(contour)
+                goal_coords = (int(x), int(y))
+            else:
+                obstacle_contours.append(approx)
 
-        # If the shape is a circle, it is the goal
-        if len(approx) > 8:
-            M = cv2.moments(contour)
-            goal_coords = (int(M['m10'] / M['m00']), int(M['m01'] / M['m00']))
-        else:
-            obstacle_contours.append(contour)
+    print(f'Number of obstacles: {len(obstacle_contours)}')
+    print(f'Goal coordinates: {goal_coords}')
 
     return obstacle_contours, goal_coords
 
 
-def draw_goal(frame, goal_coords, grid_size):
-    goal_coords = (goal_coords[0] // grid_size, goal_coords[1] // grid_size)
-    cv2.circle(frame, goal_coords, 20, (0, 255, 0), -1)
-    cv2.putText(frame, 'Goal', goal_coords, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
+def draw_goal(frame, goal_coords):
+    cv2.circle(frame, goal_coords, 7, (0, 255, 0), -1)
+    text_coords = (goal_coords[0] + 20, goal_coords[1] + 10)
+    cv2.putText(frame, 'Goal', text_coords, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
 
 
-def draw_obstacles(frame, obstacles_contours, grid_size, draw_contours=False):
+def draw_obstacles(frame, obstacles_contours):
     img_mask = np.zeros_like(frame)
-
     map_height, map_width = frame.shape[:2]
-    n_rows = map_height // grid_size
-    n_columns = map_width // grid_size
-
-    grid = np.zeros((n_rows, n_columns), dtype=np.uint8)
     
     for contour in obstacles_contours:
-        cv2.drawContours(img_mask, [contour], -1, 255, -1)
+        cv2.drawContours(img_mask, [contour], -1, 0, -1)
 
-    if draw_contours:
-        cv2.drawContours(frame, obstacles_contours, -1, (0, 255, 0), 2)
-        cv2.imshow('mask', img_mask)
-
-    for i in range(n_rows):
-        for j in range(n_columns):
-            x_start, y_start = j * grid_size, i * grid_size
-            x_end, y_end = x_start + grid_size, y_start + grid_size
-
-            cell_mask = img_mask[y_start:y_end, x_start:x_end]
-            if np.any(cell_mask):
-                grid[i, j] = 1
-                cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (255, 0, 0), -1)
-            else:
-                cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (0, 0, 0), 1)
-
-    return grid
+    cv2.drawContours(frame, obstacles_contours, -1, (0, 255, 0), 2)
+    # cv2.imshow('mask', img_mask)
 
 
 def detect_thymio(frame):
@@ -157,7 +140,6 @@ def main():
 
     MAP_MAX_HEIGHT = 600
     MAP_MAX_WIDTH = 800
-    GRID_SIZE = 30 # Size of a grid cell in pixels
 
     MAP_WIDTH_TO_DISPLAY = 500
     MAP_HEIGHT_TO_DISPLAY = 400
@@ -170,8 +152,6 @@ def main():
 
     map_coords = []
     obstacles_contours = []
-    grid = np.zeros((MAP_MAX_HEIGHT // GRID_SIZE, MAP_MAX_WIDTH // GRID_SIZE))
-    print(f'Grid shape: \nRows: {grid.shape[0]}\nColumns: {grid.shape[1]}')
 
     goal_coords = None
     thymio_coords = None
@@ -212,10 +192,10 @@ def main():
                 obstacles_detection = False
             
             if len(obstacles_contours) > 0:
-                grid = draw_obstacles(map_frame, obstacles_contours, GRID_SIZE)
+                draw_obstacles(map_frame, obstacles_contours)
 
             if goal_coords:
-                draw_goal(map_frame, goal_coords, GRID_SIZE)
+                draw_goal(map_frame, goal_coords)
 
             # Step 3: Path planning
             if path_planning:
