@@ -3,12 +3,7 @@ import numpy as np
 
 from node import *
 
-# ----------------- #
-# TODO:
-# 5. Detect goal coordinates
-# 6. Document the code
-# 7. Add code to replicate the results with and image
-# ----------------- #
+
 def preprocess_map(frame):
     img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     img_median = cv2.medianBlur(img_gray, 3)
@@ -59,40 +54,67 @@ def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
         return map_coords
 
 
-def detect_obstacles(frame):
-    img_gray = preprocess_obstacles(frame)
-    contours, _ = cv2.findContours(img_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    return contours
+def detect_obstacles_and_goal(frame, padding_obstacles, map_width_to_display, map_height_to_display):
+    canny_img = preprocess_obstacles(frame)
+    mask_obstacles = np.zeros_like(frame)
+
+    obstacle_contours = []
+    goal_coords = None
+
+    contours, hierarchy = cv2.findContours(canny_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    for i, contour in enumerate(contours):
+        if hierarchy[0][i][3] != -1 and cv2.contourArea(contour) > 1000:
+            epsilon = 0.01 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True).squeeze()
+
+            if len(approx) > 10:
+                (x,y), _ = cv2.minEnclosingCircle(contour)
+                goal_coords = (int(x), int(y))
+            else:
+                M = cv2.moments(contour)
+                if M["m00"] == 0:
+                    centroid = np.array([0, 0])
+                else:
+                    centroid = np.array([int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])])
+
+                mask_obstacle = np.zeros_like(approx)
+
+                for j, vertex in enumerate(approx):
+                    vector = vertex - centroid
+                    unit_vector = vector / np.linalg.norm(vector)
+
+                    mask_obstacle[j] = vertex + (unit_vector * (padding_obstacles // 2))
+                    approx[j] = vertex + unit_vector * padding_obstacles
+
+                cv2.drawContours(mask_obstacles, [mask_obstacle], 0, (255, 255, 255), -1)
+                obstacle_contours.append(approx)
+
+    print(f'Number of obstacles: {len(obstacle_contours)}')
+    print(f'Goal coordinates: {goal_coords}')
+
+    mask_obstacles = cv2.resize(mask_obstacles, (map_width_to_display, map_height_to_display))
+    cv2.imshow('Obstacles', mask_obstacles)
+
+    return obstacle_contours, mask_obstacles, goal_coords
 
 
-def draw_obstacles(frame, obstacles_contours, grid_size, draw_contours=False):
+def draw_goal(frame, goal_coords):
+    cv2.circle(frame, goal_coords, 7, (0, 255, 0), -1)
+    text_coords = (goal_coords[0] + 20, goal_coords[1] + 10)
+    cv2.putText(frame, 'Goal', text_coords, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
+
+
+def draw_obstacles(frame, obstacles_contours):
     img_mask = np.zeros_like(frame)
+    map_height, map_width = frame.shape[:2]
     
     for contour in obstacles_contours:
-        cv2.drawContours(img_mask, [contour], -1, 255, -1)
-
-    if draw_contours:
-        cv2.drawContours(frame, obstacles_contours, -1, (0, 255, 0), 2)
-        cv2.imshow('mask', img_mask)
-
-    img_height, img_width = frame.shape[:2]
-    for i in range(0, img_height, grid_size):
-        for j in range(0, img_width, grid_size):
-            x_start, y_start = j, i
-            x_end, y_end = x_start + grid_size, y_start + grid_size
-            obstacle_found = False
-
-            cell_mask = img_mask[y_start:y_end, x_start:x_end]
-            if np.any(cell_mask):
-                obstacle_found = True
-
-            if obstacle_found:
-                cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (255, 0, 0), -1)
-            else:
-                cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), (0, 0, 0), 1)
+        for vertex in contour:
+            cv2.circle(frame, tuple(vertex), 5, (0, 0, 255), -1)
 
 
-def detect_thymio(frame):
+def detect_thymio(frame, draw_aruco=False):
     img_gray = preprocess_map(frame)
 
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
@@ -108,7 +130,8 @@ def detect_thymio(frame):
         for aruco_id, corners in zip(ids, corners):
             aruco_id = np.squeeze(aruco_id)
             if aruco_id == 1:
-                cv2.aruco.drawDetectedMarkers(frame, [corners], aruco_id)
+                if draw_aruco:
+                    cv2.aruco.drawDetectedMarkers(frame, [corners], aruco_id)
 
                 corners = np.squeeze(corners)
 
@@ -116,23 +139,14 @@ def detect_thymio(frame):
                 thymio_center_y = int((corners[0][1] + corners[2][1]) // 2)
 
                 thymio_coords = (thymio_center_x, thymio_center_y)
-                cv2.circle(frame, thymio_coords, 20, (0, 0, 255), -1)
+                cv2.circle(frame, thymio_coords, 7, (255, 0, 0), -1)
 
-                # Important: Angle calculation, please modify it if needed
+                # Angle calculation, please modify it as you need
                 c_o = thymio_center_x - corners[0][0]
                 c_a = thymio_center_y - corners[0][1]
                 thymio_angle = np.arctan2(c_a, c_o)
 
-    if thymio_coords:
-        cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
-        cv2.putText(frame, f'Thymio angle rad: {thymio_angle}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
-        cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle)}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
-
     return thymio_coords, thymio_angle
-
-
-def detect_goal(frame):
-    pass
 
 
 def main():
@@ -141,17 +155,25 @@ def main():
 
     MAP_MAX_HEIGHT = 600
     MAP_MAX_WIDTH = 800
-    GRID_SIZE = 30 # Size of a grid cell in pixels
+
+    MAP_WIDTH_TO_DISPLAY = 500
+    MAP_HEIGHT_TO_DISPLAY = 400
+
+    PADDING_OBSTACLES = 30
     # -------- Variables -------- #
     map_detection = False
     obstacles_detection = False
+    path_planning = False
+    start_motion = False
 
     map_coords = []
     obstacles_contours = []
 
+    goal_coords = None
     thymio_coords = None
     thymio_angle = None
 
+    mask_obstacles = None
     frame_copy = None
 
     camera = cv2.VideoCapture(CAMERA_ID)
@@ -168,6 +190,7 @@ def main():
             map_coords = detect_map(frame, MAP_MAX_WIDTH, MAP_MAX_HEIGHT, draw_arucos=True)
             if len(map_coords) == 0:
                 print(f'No map detected: only {len(map_coords)} corners found')
+
             map_detection = False
             obstacles_detection = True
 
@@ -180,38 +203,81 @@ def main():
             matrix = cv2.getPerspectiveTransform(map_coords, pts2)
             map_frame = cv2.warpPerspective(frame, matrix, (MAP_MAX_WIDTH, MAP_MAX_HEIGHT))
 
-            # Step 2: Detect the obstacles inside the map
+            # Step 2: Detect the obstacles inside the map and the goal
             if obstacles_detection:
-                obstacles_contours = detect_obstacles(map_frame)
+                obstacles_contours, mask_obstacles, goal_coords = detect_obstacles_and_goal(
+                    map_frame,
+                    PADDING_OBSTACLES, 
+                    MAP_WIDTH_TO_DISPLAY,
+                    MAP_HEIGHT_TO_DISPLAY
+                )
                 obstacles_detection = False
             
             if len(obstacles_contours) > 0:
-                draw_obstacles(map_frame, obstacles_contours, GRID_SIZE, draw_contours=False)
+                draw_obstacles(map_frame, obstacles_contours)
 
+            if goal_coords:
+                draw_goal(map_frame, goal_coords)
+
+            # Step 3: Path planning
+            if path_planning:
+                start_coords, _ = detect_thymio(map_frame)
+
+                if start_coords and goal_coords:
+                    start_node = Node(start_coords)
+                    goal_node = Node(goal_coords)
+
+                    # Call path planning here: <------ Path planning
+                    # astar_path = astar(start_node, goal_node, mask_obstacles, obstacle_vertices)
+                    # draw_path(astar_path)
+
+                path_planning = False
+
+            # Step 4: Detect the Thymio
+            if start_motion:
+                thymio_coords, thymio_angle = detect_thymio(map_frame) # ------> Important: Here you have the position, and angle of the thymio
+
+            # Reshape map before display it
+            map_frame = cv2.resize(map_frame, (MAP_WIDTH_TO_DISPLAY, MAP_HEIGHT_TO_DISPLAY))
             cv2.imshow('Map', map_frame)
 
-        thymio_coords, thymio_angle = detect_thymio(frame_copy) # ------> Important: Here you have the position, and angle of the thymio
+        if thymio_coords:
+            cv2.putText(frame_copy, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
+            cv2.putText(frame_copy, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
+            cv2.putText(frame_copy, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
 
         cv2.imshow('frame', frame_copy)
 
         # ---------- Keyboard options ---------- #
         # 1. Detect the map, obstacles and goal
         if cv2.waitKey(1) & 0xFF == ord('m'):
-            print('Key m pressed')
             map_detection = True
 
         # 2. Path planning
         if cv2.waitKey(1) & 0xFF == ord('p'):
+            path_planning = True
             print('Key p pressed')
 
         # 3. Start the project
         if cv2.waitKey(1) & 0xFF == ord('s'):
-            print('Key s pressed')
+            start_motion = True
 
         # 4. Quit the program
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print('Closing the program...')
             break
+
+        # 5. Reset variables
+        if cv2.waitKey(1) & 0xFF == ord('r'):
+            print('Resetting variables...')
+            map_coords = []
+            obstacles_contours = []
+            goal_coords = None
+            thymio_coords = None
+            thymio_angle = None
+            start_motion = False
+            path_planning = False
+            map_detection = False
 
     camera.release()
     cv2.destroyAllWindows()
