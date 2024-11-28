@@ -1,4 +1,4 @@
-# Function for Global path planning
+# Function for Global path planning. The output of the function is a deque([goal_x,goal_y],...,...,...,...,[start_x,start_y]) as the example of the main (Conversion at the end).
 # TODO: import data from CV: see paragraph below                Also check output vector (Last paragraph)
         ## Inputs from CVshould be as follow: 
         # #            Nodes = array that contains every node (edge vertex of enlarged obstacles, or start/goal), with start at precised locaations (Below)
@@ -12,7 +12,6 @@ def compute_global_path():
         Mask = cv2.imread("python_djikstra/mask_obstacles.png", cv2.IMREAD_COLOR)  ###### DATA FOR MASK (OBSTACLES)                                     ## Mask image need to be in the same folder!
         Threshold=1 ### potential use is we observe a mask that is uncorrect, with parasitic lines for ex.
         ###################################### end from CV        #####################################################################################################################################################
-
 
 ################################################ Start Djikstra - calculate connectivity MATRIX and distances    ######################################################################################################
         Number_nodes = len(Nodes)
