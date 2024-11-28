@@ -9,7 +9,7 @@ def compute_global_path():
         Starting_node=0             ### index OF THE START AND GOAL
         Arrival_node=1
         Nodes=np.array([[97, 364],[636, 431], [504, 400], [529, 517], [294, 563], [271, 445], [579,  73], [678, 295], [560, 345], [464, 121], [356,  76], [384, 182], [156, 244], [128, 137]])  ## To modify as you want
-        Mask = cv2.imread("python_djikstra/mask_obstacles.png", cv2.IMREAD_COLOR)  ###### DATA FOR MASK (OBSTACLES)                                     ## Mask image need to be in the same folder!
+        Mask = cv2.imread("mask_obstacles.png", cv2.IMREAD_COLOR)  ###### DATA FOR MASK (OBSTACLES)                                     ## Mask image need to be in the same folder!
         Threshold=1 ### potential use is we observe a mask that is uncorrect, with parasitic lines for ex.
         ###################################### end from CV        #####################################################################################################################################################
 
