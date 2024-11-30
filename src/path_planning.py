@@ -1,4 +1,4 @@
-def compute_global_path():
+def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
     
     ###################################### import data from CV            #########################################################################################################################################
     Starting_node=0             ### index OF THE START AND GOAL
