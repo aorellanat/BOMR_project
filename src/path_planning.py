@@ -7,6 +7,7 @@ def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
     ###################################### import data from CV            #########################################################################################################################################
     Starting_node=0             ### index OF THE START AND GOAL
     Arrival_node=1
+    Nodes=np.stack((Starting_node,Arrival_node, Nodes))
     Nodes=np.array([[97, 364],[636, 431], [504, 400], [529, 517], [294, 563], [271, 445], [579,  73], [678, 295], [560, 345], [464, 121], [356,  76], [384, 182], [156, 244], [128, 137]])
     Mask = cv2.imread("python_djikstra/mask_obstacles.png", cv2.IMREAD_COLOR)  ###### DATA FOR MASK (OBSTACLES)
     Threshold=1 ### potential use is we observe a mask that is uncorrect, with parasitic lines for ex.
