@@ -6,16 +6,13 @@ import matplotlib.pyplot as plt
 
 TIMEOUT = 60
 
-def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Threshold=1):
+def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Threshold=1, visibility_grap_width=500, visibility_grap_height=400):
     ###################################### import data from CV            #########################################################################################################################################
-    Starting_node = 0            ### index OF THE START AND GOAL
-    Arrival_node = 1
-    print("Starting_node", Starting_node_pos)
-    print("Arrival_node", Arrival_node_pos)
-    print("Mask", Mask.shape)
     Nodes.insert(0, Starting_node_pos)
     Nodes.insert(1, Arrival_node_pos)
-    print("Nodes", Nodes)
+
+    Starting_node = 0            ### index OF THE START AND GOAL
+    Arrival_node = 1
     ###################################### end from CV        #####################################################################################################################################################
     
     ####################################### Start Djikstra - calculate connectivity and distances 
@@ -61,29 +58,56 @@ def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Thresh
         #Global_path.appendleft(Nodes[Actual_node])
         Actual_node= int(Previous[Actual_node])
 
-    ######################### plot
-    plt.imshow(Mask)
+    draw_visibility_graph(
+        Mask,
+        Nodes,
+        Connectivity_matrix,
+        Starting_node,
+        Arrival_node,
+        Previous,
+        visibility_grap_width,
+        visibility_grap_height
+    )
 
-    for j in range(Number_nodes):
-        for i in range(j):        #Connectivity_matrix[i, j] = 1 means i connected to j !!!!!!!!!!!!!!!!! i<j !!!!!!!!!!
-            if Connectivity_matrix[i,j] == 1:
-                    plt.plot((Nodes[i,0],Nodes[j,0]), (Nodes[i,1],Nodes[j,1]), '--b')
-    for i in range(Number_nodes):
-        plt.plot(Nodes[i,0],Nodes[i,1],'mo') 
-        plt.text(Nodes[i,0]+0.5,Nodes[i,1]+0.5, str(i), color="gray", fontsize=12)
-
-    Actual_node = Arrival_node
-    while Actual_node!=Starting_node:
-        plt.plot((Nodes[Actual_node,0],Nodes[int(Previous[Actual_node]),0]), (Nodes[Actual_node,1],Nodes[int(Previous[Actual_node]),1]), '-r')
-        Actual_node= int(Previous[Actual_node])
-    plt.plot(Nodes[Starting_node,0],Nodes[Starting_node,1],'bo',markersize=15)          ###Start node
-    plt.plot(Nodes[Arrival_node,0],Nodes[Arrival_node,1],'ro',markersize=15)            #### goal node
-    print("Global_path, end is first:")
-    print(Global_path)
-
+    print(f"Global path: {Global_path}")
     return Global_path
 
 
 def draw_path(path, image):
     for i in range(len(path) - 1):
         cv2.line(image, tuple(path[i]), tuple(path[i+1]), (0, 255, 0), 2)
+
+
+def draw_visibility_graph(Mask, Nodes, Connectivity_matrix, Starting_node, Arrival_node, Previous, width, height):
+    visibility_graph = Mask.copy()
+    Nodes = np.array(Nodes)
+
+    # Draw connections from the Connectivity_matrix
+    for j in range(len(Nodes)):
+        for i in range(j):
+            if Connectivity_matrix[i, j] == 1:  # i < j
+                start = (int(Nodes[i, 0]), int(Nodes[i, 1]))
+                end = (int(Nodes[j, 0]), int(Nodes[j, 1]))
+                cv2.line(visibility_graph, start, end, (255, 0, 0), 1, lineType=cv2.LINE_AA)  # Blue dashed line alternative
+
+    # Draw nodes and labels
+    for i in range(len(Nodes)):
+        center = (int(Nodes[i, 0]), int(Nodes[i, 1]))
+        cv2.circle(visibility_graph, center, 5, (255, 0, 255), -1)  # Magenta nodes
+        label_pos = (center[0] + 5, center[1] - 5)
+        cv2.putText(visibility_graph, str(i), label_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (128, 128, 128), 1, lineType=cv2.LINE_AA)
+
+    # Draw the actual path
+    Actual_node = Arrival_node
+    while Actual_node != Starting_node:
+        start = (int(Nodes[Actual_node, 0]), int(Nodes[Actual_node, 1]))
+        end = (int(Nodes[int(Previous[Actual_node]), 0]), int(Nodes[int(Previous[Actual_node]), 1]))
+        cv2.line(visibility_graph, start, end, (0, 0, 255), 2, lineType=cv2.LINE_AA)  # Red line
+        Actual_node = int(Previous[Actual_node])
+
+    # Highlight start and goal nodes
+    cv2.circle(visibility_graph, (int(Nodes[Starting_node, 0]), int(Nodes[Starting_node, 1])), 10, (255, 0, 0), -1)  # Blue start
+    cv2.circle(visibility_graph, (int(Nodes[Arrival_node, 0]), int(Nodes[Arrival_node, 1])), 10, (0, 0, 255), -1)  # Red goal
+
+    visibility_graph = cv2.resize(visibility_graph, (width, height))
+    cv2.imshow("Visibility graph", visibility_graph)

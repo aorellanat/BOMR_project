@@ -239,14 +239,10 @@ def main():
             # Step 3: Path planning
             if path_planning:
                 if thymio_found and goal_coords:
-                    start_array_coord = np.array(thymio_coords)
-                    goal_array_coords = np.array(goal_coords)
                     obstacle_vertices = get_obstacle_vertices(obstacles_contours)
-
-                    path = compute_global_path(start_array_coord, goal_array_coords, obstacle_vertices, mask_obstacles)
+                    path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
                 else:
                     print(f'It was not possible to detect the path planning. Thymio: {thymio_found}, Goal: {goal_coords}')
-
                 path_planning = False
 
             # Step 4: Init the project
