@@ -142,6 +142,7 @@ def detect_thymio(frame, draw_aruco=False):
                 corners = np.squeeze(corners)
                 tl = corners[0]
                 tr = corners[1]
+
                 top_mid = (int((tl[0] + tr[0]) // 2), int((tl[1] + tr[1]) // 2))
 
                 thymio_center_x = int((corners[0][0] + corners[2][0]) // 2)
@@ -153,8 +154,12 @@ def detect_thymio(frame, draw_aruco=False):
                 # Angle calculation, please modify it as you need
                 c_o = top_mid[0] - thymio_center_x
                 c_a = top_mid[1] - thymio_center_y
-                thymio_angle = np.arctan2(c_a, c_o)
+                thymio_angle = np.degrees(np.arctan2(c_a, c_o))
 
+                # angles cuadrants are 1: 0-(-90), cuadrant 2: (-90) - (-180), cuadrant 3: 180-90, cuadrant 4: 90-0
+                # angles cuadrants should be 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
+
+                cv2.putText(frame, f'Thymio angle: {thymio_angle:.4f}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
                 cv2.arrowedLine(frame, thymio_coords, top_mid, (0, 255, 0), 7, tipLength=0.5)
     
                 thymio_found = True
@@ -198,6 +203,9 @@ def main():
         ret, frame = camera.read()
         if not ret:
             break
+
+        thymio_found, thymio_coords, thymio_angle = detect_thymio(frame) # remove this after fixing the angle
+        cv2.imshow('frame', frame) # remove this after fixing the angle
 
         # Step 1: Detect the map
         if map_detection:
