@@ -3,14 +3,18 @@ import cv2
 import time
 from collections import deque
 
-def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
+TIMEOUT = 60
+
+def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Threshold=1):
     ###################################### import data from CV            #########################################################################################################################################
-    Starting_node=0             ### index OF THE START AND GOAL
-    Arrival_node=1
-    Nodes=np.stack((Starting_node,Arrival_node, Nodes))
-    Nodes=np.array([[97, 364],[636, 431], [504, 400], [529, 517], [294, 563], [271, 445], [579,  73], [678, 295], [560, 345], [464, 121], [356,  76], [384, 182], [156, 244], [128, 137]])
-    Mask = cv2.imread("python_djikstra/mask_obstacles.png", cv2.IMREAD_COLOR)  ###### DATA FOR MASK (OBSTACLES)
-    Threshold=1 ### potential use is we observe a mask that is uncorrect, with parasitic lines for ex.
+    Starting_node = 0            ### index OF THE START AND GOAL
+    Arrival_node = 1
+    print("Starting_node", Starting_node_pos)
+    print("Arrival_node", Arrival_node_pos)
+    print("Mask", Mask)
+    Nodes.insert(0, Starting_node_pos)
+    Nodes.insert(1, Arrival_node_pos)
+    print("Nodes", Nodes)
     ###################################### end from CV        #####################################################################################################################################################
 
     
@@ -47,12 +51,19 @@ def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
                                     Previous[Neighbour_node]=Actual_node
             Visited_nodes[Actual_node] = True
     
-            if (time.time() -Starting_time > 60):print("No path found within "+ str(round((time.time() -Starting_time),2)) +"seconds");break#### exit condition
+            if (time.time() -Starting_time > TIMEOUT):print("No path found within "+ str(round((time.time() -Starting_time),2)) +"seconds");break#### exit condition
     
     ######################################   GENERATE OUTPUT vector 
     Global_path = deque(Nodes[Arrival_node])
     Actual_node = Arrival_node
     while Actual_node!=Starting_node:                                                               ####looks at the end, what is previous node of actual, previous of previous etc....
-        #Global_path = np.vstack([Global_path, Nodes[int(Previous[Actual_node])]]) 
-        Global_path.appendleft(Nodes[Actual_node])
+        Global_path = np.vstack([Global_path, Nodes[int(Previous[Actual_node])]]) 
+        #Global_path.appendleft(Nodes[Actual_node])
         Actual_node= int(Previous[Actual_node])
+
+    return Global_path
+
+
+def draw_path(path, image):
+    for i in range(len(path) - 1):
+        cv2.line(image, tuple(path[i]), tuple(path[i+1]), (0, 255, 0), 2)
