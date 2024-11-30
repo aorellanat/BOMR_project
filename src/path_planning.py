@@ -60,22 +60,42 @@ def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
 
 
 
-    ######################### plot
-    plt.imshow(Mask)
-    for j in range(Number_nodes):
-        for i in range(j):        #Connectivity_matrix[i, j] = 1 means i connected to j !!!!!!!!!!!!!!!!! i<j !!!!!!!!!!
-            if Connectivity_matrix[i,j] == 1:
-                    plt.plot((Nodes[i,0],Nodes[j,0]), (Nodes[i,1],Nodes[j,1]), '--b')
-    for i in range(Number_nodes):
-        plt.plot(Nodes[i,0],Nodes[i,1],'mo') 
-        plt.text(Nodes[i,0]+0.5,Nodes[i,1]+0.5, str(i), color="gray", fontsize=12)
 
-    Actual_node = Arrival_node
-    while Actual_node!=Starting_node:
-        plt.plot((Nodes[Actual_node,0],Nodes[int(Previous[Actual_node]),0]), (Nodes[Actual_node,1],Nodes[int(Previous[Actual_node]),1]), '-r')
-        Actual_node= int(Previous[Actual_node])
-    plt.plot(Nodes[Starting_node,0],Nodes[Starting_node,1],'bo',markersize=15)          ###Start node
-    plt.plot(Nodes[Arrival_node,0],Nodes[Arrival_node,1],'ro',markersize=15)            #### goal node
+Mask_colored=Mask
+# Draw connections based on Connectivity_matrix
+for j in range(Number_nodes):
+    for i in range(j):  # i < j to avoid duplicate connections
+        if Connectivity_matrix[i, j] == 1:
+            # Draw a blue dashed line between Nodes[i] and Nodes[j]
+            start_point = (int(Nodes[i, 0]), int(Nodes[i, 1]))
+            end_point = (int(Nodes[j, 0]), int(Nodes[j, 1]))
+            cv2.line(Mask_colored, start_point, end_point, (255, 0, 0), 1, lineType=cv2.LINE_AA)
+
+# Draw nodes as magenta circles and add text labels
+for i in range(Number_nodes):
+    center = (int(Nodes[i, 0]), int(Nodes[i, 1]))
+    cv2.circle(Mask_colored, center, 5, (255, 0, 255), -1)  # magenta circles
+    cv2.putText(Mask_colored, str(i), (center[0] + 5, center[1] + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (169, 169, 169), 1)
+
+# Plot path from Arrival_node to Starting_node
+Actual_node = Arrival_node
+while Actual_node != Starting_node:
+    # Draw a red line from the current node to the previous node
+    start_point = (int(Nodes[Actual_node, 0]), int(Nodes[Actual_node, 1]))
+    end_point = (int(Nodes[int(Previous[Actual_node]), 0]), int(Nodes[int(Previous[Actual_node]), 1]))
+    cv2.line(Mask_colored, start_point, end_point, (0, 0, 255), 2, lineType=cv2.LINE_AA)
+    Actual_node = int(Previous[Actual_node])
+
+# Draw start and end nodes
+cv2.circle(Mask_colored, (int(Nodes[Starting_node, 0]), int(Nodes[Starting_node, 1])), 10, (255, 0, 0), -1)  # Start node in blue
+cv2.circle(Mask_colored, (int(Nodes[Arrival_node, 0]), int(Nodes[Arrival_node, 1])), 10, (0, 0, 255), -1)  # Goal node in red
+
+# Display the result
+cv2.imshow("Network Visualization", Mask_colored)
+
+
+
+    
     print("Global_path, end is first:")
     print(Global_path)
 
