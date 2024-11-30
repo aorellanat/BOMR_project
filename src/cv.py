@@ -91,12 +91,19 @@ def detect_obstacles_and_goal(frame, padding_obstacles, map_width_to_display, ma
                 obstacle_contours.append(approx)
 
     print(f'Number of obstacles: {len(obstacle_contours)}')
-    print(f'Goal coordinates: {goal_coords}')
 
     mask_obstacles = cv2.resize(mask_obstacles, (map_width_to_display, map_height_to_display))
     cv2.imshow('Obstacles', mask_obstacles)
 
     return obstacle_contours, mask_obstacles, goal_coords
+
+
+def get_obstacle_vertices(obstacles_contours):
+    obstacle_vertices = []
+    for contour in obstacles_contours:
+        for vertex in contour:
+            obstacle_vertices.append(vertex)
+    return obstacle_vertices
 
 
 def draw_goal(frame, goal_coords):
@@ -123,6 +130,7 @@ def detect_thymio(frame, draw_aruco=False):
 
     corners, ids, rejected = detector.detectMarkers(img_gray)
 
+    thymio_found = False
     thymio_coords = None
     thymio_angle = None
 
@@ -134,6 +142,9 @@ def detect_thymio(frame, draw_aruco=False):
                     cv2.aruco.drawDetectedMarkers(frame, [corners], aruco_id)
 
                 corners = np.squeeze(corners)
+                tl = corners[0]
+                tr = corners[1]
+                top_mid = (int((tl[0] + tr[0]) // 2), int((tl[1] + tr[1]) // 2))
 
                 thymio_center_x = int((corners[0][0] + corners[2][0]) // 2)
                 thymio_center_y = int((corners[0][1] + corners[2][1]) // 2)
@@ -142,11 +153,15 @@ def detect_thymio(frame, draw_aruco=False):
                 cv2.circle(frame, thymio_coords, 7, (255, 0, 0), -1)
 
                 # Angle calculation, please modify it as you need
-                c_o = thymio_center_x - corners[0][0]
-                c_a = thymio_center_y - corners[0][1]
+                c_o = top_mid[0] - thymio_center_x
+                c_a = top_mid[1] - thymio_center_y
                 thymio_angle = np.arctan2(c_a, c_o)
 
-    return thymio_coords, thymio_angle
+                cv2.arrowedLine(frame, thymio_coords, top_mid, (0, 255, 0), 7, tipLength=0.5)
+    
+                thymio_found = True
+
+    return thymio_found, thymio_coords, thymio_angle
 
 
 def main():
@@ -170,7 +185,9 @@ def main():
     obstacles_contours = []
 
     goal_coords = None
-    thymio_coords = None
+
+    thymio_found = False
+    thymio_coords = []
     thymio_angle = None
 
     mask_obstacles = None
@@ -219,29 +236,33 @@ def main():
             if goal_coords:
                 draw_goal(map_frame, goal_coords)
 
+            thymio_found, thymio_coords, thymio_angle = detect_thymio(map_frame)
+
             # Step 3: Path planning
             if path_planning:
-                start_coords, _ = detect_thymio(map_frame)
+                if thymio_found and goal_coords:
+                    start_array_coord = np.array(thymio_coords)
+                    goal_array_coords = np.array(goal_coords)
+                    obstacle_vertices = get_obstacle_vertices(obstacles_contours)
 
-                if start_coords and goal_coords:
-                    start_node = Node(start_coords)
-                    goal_node = Node(goal_coords)
-
-                    # Call path planning here: <------ Path planning
-                    # astar_path = astar(start_node, goal_node, mask_obstacles, obstacle_vertices)
-                    # draw_path(astar_path)
+                    print(f'Start coordinates: {start_array_coord}')
+                    print(f'End coordinates: {goal_array_coords}')
+                    print(f'Obstacle vertices: {obstacle_vertices}')
+                else:
+                    print(f'It was not possible to detect the path planning. Thymio: {thymio_found}, Goal: {goal_coords}')
 
                 path_planning = False
 
-            # Step 4: Detect the Thymio
-            if start_motion:
-                thymio_coords, thymio_angle = detect_thymio(map_frame) # ------> Important: Here you have the position, and angle of the thymio
+            # Step 4: Init the project
+            # if start_motion:
+                # ------> Important: Here you have the position, and angle of the thymio
+                # print(f'Thymio coordinates: {thymio_coords}')
 
             # Reshape map before display it
             map_frame = cv2.resize(map_frame, (MAP_WIDTH_TO_DISPLAY, MAP_HEIGHT_TO_DISPLAY))
             cv2.imshow('Map', map_frame)
 
-        if thymio_coords:
+        if thymio_found:
             cv2.putText(frame_copy, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
             cv2.putText(frame_copy, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
             cv2.putText(frame_copy, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
