@@ -91,6 +91,8 @@ def detect_obstacles_and_goal(frame, padding_obstacles, map_width_to_display, ma
                 obstacle_contours.append(approx)
 
     print(f'Number of obstacles: {len(obstacle_contours)}')
+    mask_obstacles = cv2.resize(mask_obstacles, (map_width_to_display, map_height_to_display))
+
     return obstacle_contours, mask_obstacles, goal_coords
 
 
@@ -189,7 +191,6 @@ def main():
     path = []
 
     mask_obstacles = None
-    frame_copy = None
 
     camera = cv2.VideoCapture(CAMERA_ID)
     # -------- Main loop -------- #
@@ -197,8 +198,6 @@ def main():
         ret, frame = camera.read()
         if not ret:
             break
-
-        frame_copy = frame.copy()
 
         # Step 1: Detect the map
         if map_detection:
@@ -211,7 +210,7 @@ def main():
 
         if len(map_coords) == 4:
             # Draw the map contour
-            cv2.polylines(frame_copy, [map_coords.astype(np.int32)], True, (0, 255, 0), 2)
+            cv2.polylines(frame, [map_coords.astype(np.int32)], True, (0, 255, 0), 2)
 
             # Perspective transformation
             pts2 = np.float32([[0, 0], [MAP_MAX_WIDTH, 0], [MAP_MAX_WIDTH, MAP_MAX_HEIGHT], [0, MAP_MAX_HEIGHT]])
@@ -258,11 +257,11 @@ def main():
             cv2.imshow('Map', map_frame)
 
         if thymio_found:
-            cv2.putText(frame_copy, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
-            cv2.putText(frame_copy, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
-            cv2.putText(frame_copy, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
+            cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
+            cv2.putText(frame, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
+            cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
 
-        cv2.imshow('frame', frame_copy)
+        cv2.imshow('frame', frame)
 
         # ---------- Keyboard options ---------- #
         # 1. Detect the map, obstacles and goal

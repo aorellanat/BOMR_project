@@ -95,7 +95,7 @@ def draw_visibility_graph(Mask, Nodes, Connectivity_matrix, Starting_node, Arriv
         center = (int(Nodes[i, 0]), int(Nodes[i, 1]))
         cv2.circle(visibility_graph, center, 5, (255, 0, 255), -1)  # Magenta nodes
         label_pos = (center[0] + 5, center[1] - 5)
-        cv2.putText(visibility_graph, str(i), label_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (128, 128, 128), 1, lineType=cv2.LINE_AA)
+        cv2.putText(visibility_graph, str(i), label_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (128, 128, 128), 1, lineType=cv2.LINE_AA)
 
     # Draw the actual path
     Actual_node = Arrival_node
