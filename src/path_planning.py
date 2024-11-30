@@ -78,3 +78,7 @@ def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
     plt.plot(Nodes[Arrival_node,0],Nodes[Arrival_node,1],'ro',markersize=15)            #### goal node
     print("Global_path, end is first:")
     print(Global_path)
+
+
+    
+    return Global_path
