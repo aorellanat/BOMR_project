@@ -1,27 +1,41 @@
 import numpy as np
 from utils import *
 import matplotlib.pyplot as plt
-
+NOISE_COV_VW = np.array([[0.01285577, 0.00072932],
+                   [0.00072932, 0.00056978]]) # from calibration.ipynb
+NOISE_COV_CAMERA = 0.0001*np.eye(3)
+NOISE_COV_CAMERA_BLOCKED=9999999*np.eye(3)
+PROCESS_COV = 0.01*np.eye(5)
 class ExtendedKalmanFilter:
     def __init__(self, state_dim, measurement_dim, control_dim, dt):
         self.state_dim = state_dim
         self.measurement_dim = measurement_dim
         self.control_dim = control_dim
         self.dt = dt
-        self.P = np.eye(self.state_dim)
+        self.P = 0.1*np.eye(self.state_dim)
         self.H = np.eye(self.measurement_dim)
         self.state_trajectory = []
+        self.camera_available = True # initially, assumes that camera is available and sets noise variance accordingly
 
-    def initialize_X_Q_R(self, initial_X, initial_Q, initial_R):
+    def initialize_X(self, initial_X):
         assert(initial_X.shape[0] == self.state_dim)
-        assert(initial_Q.shape[0] == self.state_dim)
-        assert(initial_R.shape[0] == self.measurement_dim)
         self.X = initial_X
         self.X[2] = self.clip_theta(self.X[2])
-        self.Q = initial_Q # process_noise
-        self.R = initial_R # measurement_noise
+        self.Q = PROCESS_COV # process_noise
+        self.R = np.block([[NOISE_COV_CAMERA, np.zeros((3,2))],[np.zeros((2,3)), NOISE_COV_VW]]) # measurement_noise
+        assert(self.Q.shape[0] == self.state_dim)
+        assert(self.R.shape[0] == self.measurement_dim)
         self.state_trajectory.append(initial_X)
-    
+
+    # takes a boolean value camera_blocked and modifies noise variance matrix
+    def switch_mode(self, camera_blocked):
+        if camera_blocked and self.camera_available:
+            self.R[0:3, 0:3] = NOISE_COV_CAMERA_BLOCKED
+            self.camera_available = False
+        elif not camera_blocked and not self.camera_available:
+            self.R[0:3,0:3] = NOISE_COV_CAMERA
+            self.camera_available = True
+
     def move(self, u):
         assert(u.shape[0] == 2) # u is np.array containing v_,w_
         x,y,theta,v,w = self.X
@@ -59,6 +73,10 @@ class ExtendedKalmanFilter:
         self.P = (np.eye(self.state_dim) - K @ self.H) @ self.P
         self.state_trajectory.append(self.X)
     # theta (or delta theta) must be in the range of [-pi, pi)
+
+    def get_X(self):
+        return self.X
+    
     def clip_theta(self, theta):
         return (theta + np.pi) % (2 * np.pi) - np.pi
 
