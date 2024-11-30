@@ -2,21 +2,24 @@ import numpy as np
 import cv2
 import time
 from collections import deque
-import matplotlib.pyplot as plt
 
 TIMEOUT = 60
 
 def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Threshold=1, visibility_grap_width=500, visibility_grap_height=400):
     ###################################### import data from CV            #########################################################################################################################################
+    Starting_node_pos=np.array(Starting_node_pos, dtype=np.int32)
+    Arrival_node_pos=np.array(Arrival_node_pos, dtype=np.int32)
     Nodes.insert(0, Starting_node_pos)
     Nodes.insert(1, Arrival_node_pos)
 
-    Starting_node = 0            ### index OF THE START AND GOAL
-    Arrival_node = 1
+    Starting_node = 1            ### index OF THE START AND GOAL
+    Arrival_node = 0
     ###################################### end from CV        #####################################################################################################################################################
     
     ####################################### Start Djikstra - calculate connectivity and distances 
     Number_nodes = len(Nodes)
+
+    print(Nodes)
     Connectivity_matrix = np.zeros((Number_nodes, Number_nodes), dtype=bool)      ##Connectivity_matrix[i, j] = 1 means i connected to j !!!!!!!!!!!!!!!!! i<j !!!!!!!!!! Matrix verifying if i and j are connected. 1 ou 0 (triangulaire supperieure)
     Distance_between_nodes = np.full((Number_nodes, Number_nodes), np.inf)  #Initialise distances at infinity, to be changed.Also a matrice that is triangular supperior. The diagonal should be 0, but since we don't use it we don't lose time doing it
     Starting_time=time.time();Exit= bool(0)
