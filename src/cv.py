@@ -91,10 +91,6 @@ def detect_obstacles_and_goal(frame, padding_obstacles, map_width_to_display, ma
                 obstacle_contours.append(approx)
 
     print(f'Number of obstacles: {len(obstacle_contours)}')
-
-    mask_obstacles = cv2.resize(mask_obstacles, (map_width_to_display, map_height_to_display))
-    cv2.imshow('Obstacles', mask_obstacles)
-
     return obstacle_contours, mask_obstacles, goal_coords
 
 
@@ -246,10 +242,6 @@ def main():
                     start_array_coord = np.array(thymio_coords)
                     goal_array_coords = np.array(goal_coords)
                     obstacle_vertices = get_obstacle_vertices(obstacles_contours)
-
-                    # print(f'Start coordinates: {start_array_coord}')
-                    # print(f'End coordinates: {goal_array_coords}')
-                    # print(f'Obstacle vertices: {obstacle_vertices}')
 
                     path = compute_global_path(start_array_coord, goal_array_coords, obstacle_vertices, mask_obstacles)
                 else:
