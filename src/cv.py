@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from node import *
+from path_planning import *
 
 
 def preprocess_map(frame):
@@ -190,6 +190,8 @@ def main():
     thymio_coords = []
     thymio_angle = None
 
+    path = []
+
     mask_obstacles = None
     frame_copy = None
 
@@ -245,9 +247,11 @@ def main():
                     goal_array_coords = np.array(goal_coords)
                     obstacle_vertices = get_obstacle_vertices(obstacles_contours)
 
-                    print(f'Start coordinates: {start_array_coord}')
-                    print(f'End coordinates: {goal_array_coords}')
-                    print(f'Obstacle vertices: {obstacle_vertices}')
+                    # print(f'Start coordinates: {start_array_coord}')
+                    # print(f'End coordinates: {goal_array_coords}')
+                    # print(f'Obstacle vertices: {obstacle_vertices}')
+
+                    path = compute_global_path(start_array_coord, goal_array_coords, obstacle_vertices, mask_obstacles)
                 else:
                     print(f'It was not possible to detect the path planning. Thymio: {thymio_found}, Goal: {goal_coords}')
 
@@ -257,6 +261,9 @@ def main():
             # if start_motion:
                 # ------> Important: Here you have the position, and angle of the thymio
                 # print(f'Thymio coordinates: {thymio_coords}')
+
+            if len(path) > 0:
+                draw_path(path, map_frame)
 
             # Reshape map before display it
             map_frame = cv2.resize(map_frame, (MAP_WIDTH_TO_DISPLAY, MAP_HEIGHT_TO_DISPLAY))
