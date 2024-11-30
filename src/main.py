@@ -7,19 +7,13 @@ from kalman import *
 # -------- Constants -------- #
 CAMERA_ID = 0
 
+REAL_MAP_HEIGHT_CM = 84
+REAL_MAP_WIDTH_CM = 88.5
+
 MAP_MAX_HEIGHT = 600
 MAP_MAX_WIDTH = 800
 
-MAP_WIDTH_TO_DISPLAY = 500
-MAP_HEIGHT_TO_DISPLAY = 400
-
 PADDING_OBSTACLES = 30
-# --------------------------- #
-def thymio_motion(thymio_coords, thymio_angle, path):
-    print('Thymio motion thread started...')
-    print(f'Thymio coords: {thymio_coords}, Thymio angle: {thymio_angle}')
-    time.sleep(2)
-
 
 def main():
     # -------- Variables -------- #
@@ -42,17 +36,11 @@ def main():
     mask_obstacles = None
 
     camera = cv2.VideoCapture(CAMERA_ID)
-
-    t1 = threading.Thread(target=thymio_motion, args=(thymio_coords, thymio_angle, path))
-
-    # -------- Computer vision main loop -------- #
+    # -------- Main loop -------- #
     while True:
         ret, frame = camera.read()
         if not ret:
             break
-
-        thymio_found, thymio_coords, thymio_angle = detect_thymio(frame) # remove this after fixing the angle
-        cv2.imshow('frame', frame) # remove this after fixing the angle
 
         # Step 1: Detect the map
         if map_detection:
@@ -74,12 +62,7 @@ def main():
 
             # Step 2: Detect the obstacles inside the map and the goal
             if obstacles_detection:
-                obstacles_contours, mask_obstacles, goal_coords = detect_obstacles_and_goal(
-                    map_frame,
-                    PADDING_OBSTACLES, 
-                    MAP_WIDTH_TO_DISPLAY,
-                    MAP_HEIGHT_TO_DISPLAY
-                )
+                obstacles_contours, mask_obstacles, goal_coords = detect_obstacles_and_goal(map_frame, PADDING_OBSTACLES)
                 obstacles_detection = False
             
             if len(obstacles_contours) > 0:
@@ -101,22 +84,23 @@ def main():
 
             # Step 4: Init the project
             if start_motion:
-                # ------> Important: Here you have the position, and angle of the thymio
                 print('Starting the project...')
-                t1.start()
-                
+                thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
+                print(f'Thymio coordinates in cm: {thymio_coords_cm}')
+                # ------> Important: Here you have the position, and angle of the thymio
+
 
             if len(path) > 0:
                 draw_path(path, map_frame)
 
             # Reshape map before display it
-            map_frame = cv2.resize(map_frame, (MAP_WIDTH_TO_DISPLAY, MAP_HEIGHT_TO_DISPLAY))
+            map_frame = cv2.resize(map_frame, (500, 400))
             cv2.imshow('Map', map_frame)
 
         if thymio_found:
-            cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
-            cv2.putText(frame, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
-            cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
+            cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
+            cv2.putText(frame, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
+            cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
 
         cv2.imshow('frame', frame)
 
@@ -139,10 +123,9 @@ def main():
             print('Closing the program...')
             break
 
-
     camera.release()
     cv2.destroyAllWindows()
 
 
-if __name__ =="__main__":
+if __name__ == '__main__':
     main()
