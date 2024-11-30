@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import time
 from collections import deque
+import matplotlib.pyplot as plt
 
 def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
     ###################################### import data from CV            #########################################################################################################################################
@@ -56,3 +57,24 @@ def compute_global_path(Nodes, Starting_node,Arrival_node, Mask):
         #Global_path = np.vstack([Global_path, Nodes[int(Previous[Actual_node])]]) 
         Global_path.appendleft(Nodes[Actual_node])
         Actual_node= int(Previous[Actual_node])
+
+
+
+    ######################### plot
+    plt.imshow(Mask)
+    for j in range(Number_nodes):
+        for i in range(j):        #Connectivity_matrix[i, j] = 1 means i connected to j !!!!!!!!!!!!!!!!! i<j !!!!!!!!!!
+            if Connectivity_matrix[i,j] == 1:
+                    plt.plot((Nodes[i,0],Nodes[j,0]), (Nodes[i,1],Nodes[j,1]), '--b')
+    for i in range(Number_nodes):
+        plt.plot(Nodes[i,0],Nodes[i,1],'mo') 
+        plt.text(Nodes[i,0]+0.5,Nodes[i,1]+0.5, str(i), color="gray", fontsize=12)
+
+    Actual_node = Arrival_node
+    while Actual_node!=Starting_node:
+        plt.plot((Nodes[Actual_node,0],Nodes[int(Previous[Actual_node]),0]), (Nodes[Actual_node,1],Nodes[int(Previous[Actual_node]),1]), '-r')
+        Actual_node= int(Previous[Actual_node])
+    plt.plot(Nodes[Starting_node,0],Nodes[Starting_node,1],'bo',markersize=15)          ###Start node
+    plt.plot(Nodes[Arrival_node,0],Nodes[Arrival_node,1],'ro',markersize=15)            #### goal node
+    print("Global_path, end is first:")
+    print(Global_path)
