@@ -22,9 +22,10 @@ class motion_controller:
                 self.control_mode = "get_back_to_path"
         elif self.control_mode == "get_back_to_path":
             dtheta = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
-            if abs(dtheta) < 0.1: # obstacle detected at behind
+            if abs(dtheta) < 0.1: # has recovered original heading
                 self.control_mode = "path_following"
                 print("path following activated activated")
+        return self.control_mode == "local_avoidance"
     def activate_path_following(self, x, y):
         dy = y - self.y_entrance
         dx = x - self.x_entrance

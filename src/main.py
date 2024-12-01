@@ -1,113 +1,131 @@
-from tdmclient import ClientAsync, aw
-from computer_vision import ComputerVision
-from kalman import *
-from motion_control import *
-from utils import *
-from path_planning import *
+import threading
 import time
-from threading import Timer
-from collections import deque
 
+from cv import *
+from kalman import *
 
-def motors(left, right):
-    return {
-        "motor.left.target": [left],
-        "motor.right.target": [right],
-    }
+# -------- Constants -------- #
+CAMERA_ID = 0
 
-def get_data():
-    aw(node.wait_for_variables({"motor.left.speed","motor.right.speed", "acc", "prox.horizontal"}))
-    return [node["motor.left.speed"],
-            node["motor.right.speed"],
-            list(node["acc"]),
-            list(node["prox.horizontal"])]
+REAL_MAP_HEIGHT_CM = 84
+REAL_MAP_WIDTH_CM = 88.5
 
-#connect to thymio
-client = ClientAsync()
-node = aw(client.wait_for_node())
-aw(node.lock())
+MAP_MAX_HEIGHT = 600
+MAP_MAX_WIDTH = 800
 
-#main loop
-#set parameters here
-dt = 0.1
-epsilon = 0.7 # to check if thymio is close enough to next target
-state_dim=5
-measurement_dim=5
-control_dim=2
-# TODO:connect to camera
-computer_vision = ComputerVision()
-global_path = computer_vision.map_obstacle_detection()
+PADDING_OBSTACLES = 30
 
-# initialize ekf with information from cv
-ekf = ExtendedKalmanFilter(state_dim, measurement_dim, control_dim,dt)
-camera_blocked = True
-initial_state = np.array([0,0,np.pi/2,0,0]) # x,y,theta,v,w
-ekf.initialize_X(initial_state)
+def main():
+    # -------- Variables -------- #
+    map_detection = False
+    obstacles_detection = False
+    path_planning = False
+    start_motion = False
 
-mc = motion_controller()
-# main loop
-next_target = global_path.popleft()
-print(f"next_target = {next_target[0]}, {next_target[1]}")
-target_reached = False
-counter = 0
-start_time = time.time()
-while (True):
-    #TODO: get data from camera(thymio_found, x, y, theta)
-    thymio_found, x_camera, y_camera, theta_camera = computer_vision.get_thymio_info()
-    camera_blocked = not thymio_found
+    map_coords = []
+    obstacles_contours = []
 
-    ekf.switch_mode(camera_blocked)
+    goal_coords = None
 
-    data = get_data()
-    ul = data[0]
-    ur = data[1]
-    acc_z = data[2][2]
-    prox_horizontal = data[3]
+    thymio_found = False
+    thymio_coords = []
+    thymio_angle = None
 
-    v,w = from_u_to_vw(ul, ur)
-    u = np.array([v,w])
-    z = np.array([x_camera, y_camera, theta_camera, v, w])
+    path = []
 
-    #if kidnapping detected(from acceleration), stop for 3 sec, compute global path again, continue;
-    if abs(acc_z - 22) > 3: # sudden change in acc_z indicates kidnapping
-        print("kidnapping detected")
-        node.send_set_variables(motors(0,0))
-        aw(client.sleep(3))
-        #TODO: compute new global path
-        global_path = computer_vision.map_obstacle_detection()
-        next_target = global_path.popleft()
-        continue
+    mask_obstacles = None
 
-    # updating thymio state, obviously
-    ekf.predict_and_update(u,z)
-    x,y,theta,v,w = ekf.get_X()
-    if counter % 15 == 0:
-        print(f"state = {x:.2f}, {y:.2f}, {theta:.2f}, {v:.2f}, {w:.2f}")
-    
-    #  check if next_target is reached
-    target_reached = np.linalg.norm(np.array([x - next_target[0], y - next_target[1]])) < epsilon
-    if target_reached:
-        if len(global_path)==0:
-            print("goal reached, terminating")
+    camera = cv2.VideoCapture(CAMERA_ID)
+    # -------- Main loop -------- #
+    while True:
+        ret, frame = camera.read()
+        if not ret:
             break
-        else:
-            print("heading towards next waypoint")
-            next_target = global_path.popleft()
-            print(f"next_target = {next_target[0]}, {next_target[1]}")
 
-    #in the end, should return desired v and w
-    mc.set_mode(prox_horizontal, x, y, theta)
-    ul, ur = mc.compute_control(x,y,theta,next_target[0], next_target[1], prox_horizontal)
-    node.send_set_variables(motors(ul, ur))
-    aw(client.sleep(dt))
-    counter += 1
+        # Step 1: Detect the map
+        if map_detection:
+            map_coords = detect_map(frame, MAP_MAX_WIDTH, MAP_MAX_HEIGHT, draw_arucos=True)
+            if len(map_coords) == 0:
+                print(f'No map detected: only {len(map_coords)} corners found')
 
-    # whatever happens, stop after 120 sec
-    elapsed_time = time.time() - start_time
-    if elapsed_time > 120:
-        break
+            map_detection = False
+            obstacles_detection = True
 
-# stop thymio
-node.send_set_variables(motors(0,0))
-aw(node.unlock())
-print("terminating main")
+        if len(map_coords) == 4:
+            # Draw the map contour
+            cv2.polylines(frame, [map_coords.astype(np.int32)], True, (0, 255, 0), 2)
+
+            # Perspective transformation
+            pts2 = np.float32([[0, 0], [MAP_MAX_WIDTH, 0], [MAP_MAX_WIDTH, MAP_MAX_HEIGHT], [0, MAP_MAX_HEIGHT]])
+            matrix = cv2.getPerspectiveTransform(map_coords, pts2)
+            map_frame = cv2.warpPerspective(frame, matrix, (MAP_MAX_WIDTH, MAP_MAX_HEIGHT))
+
+            # Step 2: Detect the obstacles inside the map and the goal
+            if obstacles_detection:
+                obstacles_contours, mask_obstacles, goal_coords = detect_obstacles_and_goal(map_frame, PADDING_OBSTACLES)
+                obstacles_detection = False
+            
+            if len(obstacles_contours) > 0:
+                draw_obstacles(map_frame, obstacles_contours)
+
+            if goal_coords:
+                draw_goal(map_frame, goal_coords)
+
+            thymio_found, thymio_coords, thymio_angle = detect_thymio(map_frame)
+
+            # Step 3: Path planning
+            if path_planning:
+                if thymio_found and goal_coords:
+                    obstacle_vertices = get_obstacle_vertices(obstacles_contours)
+                    path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
+                else:
+                    print(f'It was not possible to detect the path planning. Thymio: {thymio_found}, Goal: {goal_coords}')
+                path_planning = False
+
+            # Step 4: Init the project
+            if start_motion:
+                print('Starting the project...')
+                thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
+                print(f'Thymio coordinates in cm: {thymio_coords_cm}')
+                # ------> Important: Here you have the position, and angle of the thymio
+
+
+            if len(path) > 0:
+                draw_path(path, map_frame)
+
+            # Reshape map before display it
+            map_frame = cv2.resize(map_frame, (500, 400))
+            cv2.imshow('Map', map_frame)
+
+        if thymio_found:
+            cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
+            cv2.putText(frame, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
+            cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
+
+        cv2.imshow('frame', frame)
+
+        # ---------- Keyboard options ---------- #
+        # 1. Detect the map, obstacles and goal
+        if cv2.waitKey(1) & 0xFF == ord('m'):
+            map_detection = True
+
+        # 2. Path planning
+        if cv2.waitKey(1) & 0xFF == ord('p'):
+            path_planning = True
+            print('Key p pressed')
+
+        # 3. Start the project
+        if cv2.waitKey(1) & 0xFF == ord('s'):
+            start_motion = True
+
+        # 4. Quit the program
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            print('Closing the program...')
+            break
+
+    camera.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main()
