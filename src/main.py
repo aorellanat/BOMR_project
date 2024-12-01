@@ -69,8 +69,8 @@ def main():
     thymio_angle = 0
     goal_coords = None
 
-    global_path = []
-    path = []
+    global_path = [] # this used for drawing the path
+    path = [] # this is modified with the motion controller and kalman
 
     ekf = ExtendedKalmanFilter(state_dim, measurement_dim, control_dim,dt)
     mc = motion_controller()
@@ -117,6 +117,7 @@ def main():
             if path_planning:
                 if thymio_found and goal_coords:
                     obstacle_vertices = get_obstacle_vertices(obstacles_contours)
+
                     global_path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
                     path = global_path.copy().tolist()
 
@@ -155,7 +156,7 @@ def main():
                     if abs(acc_z - 22) > 3: # sudden change in acc_z indicates kidnapping
                         print("kidnapping detected")
                         thymio.node.send_set_variables(motors(0,0))
-                        aw(client.sleep(3))
+                        aw(thymio.client.sleep(3))
                         # computes new global path in the next iteration
                         path_planning = True
                         continue
