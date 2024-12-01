@@ -172,4 +172,4 @@ def convert_pixel_to_cm(pixel_coords, real_map_width, real_map_height, map_width
     x, y = pixel_coords
     x_cm = (x * real_map_width) / map_width_pixels
     y_cm = ((map_height_pixels - y) * real_map_height) / map_height_pixels
-    return x_cm, y_cm
+    return [x_cm, y_cm]
