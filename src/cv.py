@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import math
 
 
 def preprocess_map(frame):
@@ -141,29 +142,49 @@ def detect_thymio(frame, draw_aruco=False):
                     cv2.aruco.drawDetectedMarkers(frame, [corners], aruco_id)
 
                 corners = np.squeeze(corners)
-                tl = corners[0]
-                tr = corners[1]
+                # An aruco has 4 corners ordered in clockwise order, and start from the top left corner
+                # Each corner is an array of 2 elements: x and y coordinates
+                tl = corners[0] # top left
+                tr = corners[1] # top right
+                br = corners[2]	# bottom right
+                bl = corners[3]	# bottom left
 
-                top_mid = (int((tl[0] + tr[0]) // 2), int((tl[1] + tr[1]) // 2))
+                # Compute the thymio center point by averaging the top left and bottom right corners
+                thymio_center_x = int((corners[0][0] + corners[2][0]) / 2)
+                thymio_center_y = int((corners[0][1] + corners[2][1]) / 2)
+                thymio_coords = [thymio_center_x, thymio_center_y]
+                cv2.circle(frame, tuple(thymio_coords), 7, (255, 0, 0), -1)
 
-                thymio_center_x = int((corners[0][0] + corners[2][0]) // 2)
-                thymio_center_y = int((corners[0][1] + corners[2][1]) // 2)
+                #  ---------------- Please modify the angle calculation as needed ----------------
+                # Angle cuadrant 1 should be 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
+                # Reference: https://github.com/anish-natekar/OpenCV_ArUco_Angle_Estimation/blob/main/aruco_library.py
 
-                thymio_coords = (thymio_center_x, thymio_center_y)
-                cv2.circle(frame, thymio_coords, 7, (255, 0, 0), -1)
+                # Compute the top middle point
+                top_middle = (int((tl[0] + tr[0]) / 2), -int((tl[1] + tr[1]) / 2))
 
-                # Angle calculation, please modify it as you need
-                c_o = top_mid[0] - thymio_center_x
-                c_a = top_mid[1] - thymio_center_y
-                thymio_angle = np.arctan2(c_a, c_o)
+                # Compute the center of the aruco with negative y axis
+                centre = (tl[0] + tr[0] + bl[0] + br[0]) / 4, -((tl[1] + tr[1] + bl[1] + br[1]) / 4)
+                try:
+                    thymio_angle = math.degrees(np.arctan((top_middle[1] - centre[1]) / (top_middle[0] - centre[0])))
+                except:
+                    # Tangent has asymptote at 90 and 270 degrees
+                    if top_middle[1] > centre[1]:
+                        thymio_angle = 90
+                    elif top_middle[1] < centre[1]:
+                        thymio_angle = 270
+                
+                if top_middle[0] >= centre[0] and top_middle[1] < centre[1]:
+                    thymio_angle = 360 + thymio_angle
+                elif top_middle[0] < centre[0]:
+                    thymio_angle = 180 + thymio_angle
 
-                # angles cuadrants are 1: 0-(-90), cuadrant 2: (-90) - (-180), cuadrant 3: 180-90, cuadrant 4: 90-0
-                # angles cuadrants should be 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
-                thymio_found = True
-
-                cv2.arrowedLine(frame, thymio_coords, top_mid, (0, 255, 0), 7, tipLength=0.5)
+                top_middle = (top_middle[0], -top_middle[1])
+                cv2.arrowedLine(frame, tuple(thymio_coords), top_middle, (0, 255, 0), 7, tipLength=0.5)
                 cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                cv2.putText(frame, f'Thymio angle in degrees: {np.degrees(thymio_angle):.4f}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                cv2.putText(frame, f'Thymio angle in degrees: {thymio_angle:.2f}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+
+                thymio_found = True
+                thymio_angle = math.radians(thymio_angle)
 
     return thymio_found, thymio_coords, thymio_angle
 
