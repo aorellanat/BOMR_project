@@ -130,8 +130,8 @@ def detect_thymio(frame, draw_aruco=False):
     corners, ids, rejected = detector.detectMarkers(img_gray)
 
     thymio_found = False
-    thymio_coords = None
-    thymio_angle = None
+    thymio_coords = [0, 0]
+    thymio_angle = 0
 
     if ids is not None:
         for aruco_id, corners in zip(ids, corners):

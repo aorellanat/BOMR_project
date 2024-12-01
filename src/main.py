@@ -65,8 +65,8 @@ def main():
     mask_obstacles = None
 
     thymio_found = False
-    thymio_coords = []
-    thymio_angle = None
+    thymio_coords = [0, 0]
+    thymio_angle = 0
     goal_coords = None
 
     global_path = []
@@ -120,8 +120,8 @@ def main():
                     global_path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
                     path = global_path.copy().tolist()
 
+                    # Initialize the Kalman filter, need to run only once
                     if not kalman_filter_initialized:
-                        # Initialize the Kalman filter, need to run only once
                         thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
                         initial_state = np.array([thymio_coords_cm[0], thymio_coords_cm[1], thymio_angle, 0, 0]) # x, y, theta, v, w
                         ekf.initialize_X(initial_state)
