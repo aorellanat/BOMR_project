@@ -3,7 +3,7 @@ import cv2
 import time
 from collections import deque
 
-TIMEOUT = 60
+TIMEOUT = 10
 
 def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Threshold=1, visibility_grap_width=500, visibility_grap_height=400):
     ###################################### import data from CV            #########################################################################################################################################
@@ -41,6 +41,8 @@ def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Thresh
     
     #######################################  Backtracking    
     Unvisited_nodes = np.where(Visited_nodes == False)[0]
+    # print(Connectivity_matrix[0, :])
+
     while Visited_nodes[Arrival_node]!=True:
             Unvisited_nodes = np.where(Visited_nodes == False)[0]           ## unvisited indices
             Actual_node = Unvisited_nodes[np.argmin(Distance_from_start[Unvisited_nodes])]  ##minimal distance of the unvisited 

@@ -10,17 +10,17 @@ from tdmclient import ClientAsync, aw
 # -------- Computer vision constants -------- #
 CAMERA_ID = 1
 
-REAL_MAP_HEIGHT_CM = 84
-REAL_MAP_WIDTH_CM = 88.5
+REAL_MAP_HEIGHT_CM = 123
+REAL_MAP_WIDTH_CM = 145
 
 MAP_MAX_HEIGHT = 600
 MAP_MAX_WIDTH = 800
 
-PADDING_OBSTACLES = 30
+PADDING_OBSTACLES = 50
 
 # -------- Kalman filter constants -------- #
 dt = 0.1
-epsilon = 0.7 # to check if thymio is close enough to next target
+epsilon = 0.5 # to check if thymio is close enough to next target
 state_dim=5
 measurement_dim=5
 control_dim=2
@@ -42,11 +42,12 @@ class Thymio:
         print('Connected to Thymio!')
 
     def get_data(self):
-        aw(self.node.wait_for_variables({"motor.left.speed","motor.right.speed", "acc", "prox.horizontal"}))
+        aw(self.node.wait_for_variables({"motor.left.speed","motor.right.speed", "prox.ground.delta", "prox.horizontal", "acc"}))
         return [self.node["motor.left.speed"],
                 self.node["motor.right.speed"],
-                list(self.node["acc"]),
-                list(self.node["prox.horizontal"])]
+                list(self.node["prox.ground.delta"]),
+                list(self.node["prox.horizontal"]),
+                list(self.node["acc"])]
 
     def set_motors(self, left, right):
         self.node.send_set_variables(motors(left, right))
@@ -68,6 +69,7 @@ def main():
     thymio_coords = [0, 0]
     thymio_angle = 0
     goal_coords = None
+    kidnapping = False
 
     global_path = [] # this used for drawing the path
     path = [] # this is modified with the motion controller and kalman
@@ -115,23 +117,39 @@ def main():
 
             # Step 2: Path planning
             if path_planning:
-                if thymio_found and goal_coords:
+                if kidnapping:
+                    aw(thymio.client.sleep(dt))
+                    data = thymio.get_data()
+                    prox_ground_delta = data[2]
+                    print(f"kidnapping, {prox_ground_delta[0]}")
+                    if prox_ground_delta[0] > 700:
+                        kidnapping = False
+                        mc.control_mode = "path_following"
+                        print("kidnapping finished")
+                        continue
+                if thymio_found and goal_coords and not kidnapping:
                     obstacle_vertices = get_obstacle_vertices(obstacles_contours)
 
                     global_path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
+                    if global_path is None:
+                        cv2.putText(map_frame, f'Thymio inside obstacle, place again', (500,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                        continue
                     path = global_path.copy().tolist()
                     path = [convert_pixel_to_cm(target, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT) for target in path]
-
+                    next_target = path.pop(0)
                     # Initialize the Kalman filter, need to run only once
                     if not kalman_filter_initialized:
                         thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
                         initial_state = np.array([thymio_coords_cm[0], thymio_coords_cm[1], thymio_angle, 0, 0]) # x, y, theta, v, w
                         ekf.initialize_X(initial_state)
                         kalman_filter_initialized = True
-                        next_target = path.pop(0)
+                    start_motion=True
+                    path_planning = False
                 else:
-                    print(f'No path found. Thymio: {thymio_found}, Goal: {goal_coords}')
-                path_planning = False
+                    # print(f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}')
+                    cv2.putText(map_frame, f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}', (500,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    start_motion=False
+                
 
 
             # Step 3: Start motion
@@ -146,18 +164,19 @@ def main():
                     data = thymio.get_data()
                     ul = data[0]
                     ur = data[1]
-                    acc_z = data[2][2]
+                    prox_ground_delta = data[2]
                     prox_horizontal = data[3]
+                    acc = data[4]
 
                     v,w = from_u_to_vw(ul, ur)
                     u = np.array([v,w])
                     z = np.array([x_camera, y_camera, theta_camera, v, w])
 
-                    #if kidnapping detected(from acceleration), stop for 3 sec, compute global path again, continue;
-                    if abs(acc_z - 22) > 3: # sudden change in acc_z indicates kidnapping
+                    #use acc to detect kidnapping, ground sensor to see if Thymio has been put back on floor
+                    if abs(acc[2]-22)>4: # sudden change in acc_z indicates kidnapping
                         print("kidnapping detected")
+                        kidnapping = True
                         thymio.node.send_set_variables(motors(0,0))
-                        aw(thymio.client.sleep(5))
                         # computes new global path in the next iteration
                         path_planning = True
                         continue
@@ -167,7 +186,7 @@ def main():
                     x,y,theta,v,w = ekf.get_X()
                     ekf_pixel = convert_cm_to_pixel((x,y), REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
                     x_target, y_target = next_target
-                    cv2.circle(map_frame, ekf_pixel, 7, (0, 255, 0), -1)
+                    cv2.circle(map_frame, ekf_pixel, 7, (0, 0,255), -1)
                     #  check if next_target is reached
                     target_reached = np.linalg.norm(np.array([x - next_target[0], y - next_target[1]])) < epsilon
                     if target_reached:
@@ -185,7 +204,7 @@ def main():
                     cv2.putText(map_frame, f'EKF: {x:.2f},{y:.2f}, {theta:.2f}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     cv2.putText(map_frame, f'Next target: {x_target:.2f}, {y_target:.2f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     cv2.putText(map_frame, f'Control input: {ul}, {ur}', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    cv2.putText(map_frame, f'Thymio found: {thymio_found}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'Thymio found from camera: {thymio_found}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     cv2.putText(map_frame, f'{mc.control_mode}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     thymio.node.send_set_variables(motors(ul, ur))
                     # if counter % 10 == 0:

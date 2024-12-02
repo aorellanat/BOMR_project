@@ -1,6 +1,6 @@
 import math
 import numpy as np
-
+from utils import *
 
 def check_obstacle(prox_horizontal):
     if any(np.array(prox_horizontal[0:5]) > 1000):
@@ -24,31 +24,31 @@ class local_nav:
     def calculate_speed_local_nav(self, prox_horizontal):
         if self.mode == "turning":
             if self.wall_on == "right":
-                ul = -50
-                ur = 50
+                v = 0
+                w = 0.314
                 if all(np.array(prox_horizontal[2:]) < 500):
                     self.mode = "wall_following"
                     print(f"{self.mode} on {self.wall_on} activated")
             elif self.wall_on == "left":
-                ul = 50
-                ur = -50
+                v = 0
+                w = - 0.314
                 if all(np.array(prox_horizontal[0:3]) < 500):
                     self.mode = "wall_following"
                     print(f"{self.mode} on {self.wall_on} activated")
             
         elif self.mode == "wall_following":
             if self.wall_on == "right":
-                if all(np.array(prox_horizontal[2:]) < 500):
-                    ul, ur = 80,50
-                else:
-                    ul, ur = 80,100
+                if all(np.array(prox_horizontal[2:]) < 500): # not seeing the wall on right, turning right
+                    v, w = 1, -0.314
+                else: # seeing the wall, move and turn slightly left
+                    v, w = 3, 0.1
             if self.wall_on == "left":
-                if all(np.array(prox_horizontal[0:3]) < 500):
-                    ul, ur = 50,80
-                else:
-                    ul, ur = 100,80
-        
-        return ul, ur
+                if all(np.array(prox_horizontal[0:3]) < 500): # not seeing the wall on left, turning left
+                    v, w = 1, 0.314
+                else: # seeing the wall, move and turn slightly right
+                    v, w = 3, -0.1
+
+        return v,w
 
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 import local_avoidance
-import utils
+from utils import *
 class motion_controller:
     def __init__(self):
         self.control_mode = "path_following"
@@ -48,9 +48,9 @@ class motion_controller:
 
         desired_theta = np.arctan2(dy, dx)
         dtheta = (desired_theta - theta + np.pi)% (2*np.pi) - np.pi
-        if abs(dtheta) > 5*np.pi / 180: # abs(dtheta) larger than 3 degree
+        if abs(dtheta) > 3*np.pi / 180: # abs(dtheta) larger than 3 degree
             v_ = 0
-            w_ = np.sign(dtheta)*10*np.pi/180
+            w_ = np.sign(dtheta)*0.314
         else:
             v_ = 3.3
             w_ = 0
@@ -65,14 +65,12 @@ class motion_controller:
     
     def compute_control(self, x,y,theta,x_goal, y_goal, prox_horizontal):
         if self.control_mode == "local_avoidance":
-            return self.local_nav.calculate_speed_local_nav(prox_horizontal)
+            v, w = self.local_nav.calculate_speed_local_nav(prox_horizontal)
         elif self.control_mode == "path_following":
             v,w = self.find_how_go(x,y,theta,x_goal, y_goal)
-            ul, ur = utils.from_vw_to_u(v,w)
-            return ul, ur
         elif self.control_mode == "get_back_to_path":
             if self.local_nav.wall_on == "right":
-                ul, ur = 20,60
+                v, w = 2, 0.314
             else:
-                ul, ur = 60,20
-        return ul, ur
+                v, w = 2, -0.314
+        return from_vw_to_u(v,w)

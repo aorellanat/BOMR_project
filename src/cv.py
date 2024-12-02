@@ -89,7 +89,7 @@ def detect_obstacles_and_goal(frame, padding_obstacles):
                     vector = vertex - centroid
                     unit_vector = vector / np.linalg.norm(vector)
 
-                    mask_obstacle[j] = vertex + (unit_vector * (padding_obstacles // 2))
+                    mask_obstacle[j] = vertex + (unit_vector * (4*padding_obstacles //5))
                     approx[j] = vertex + unit_vector * padding_obstacles
 
                 cv2.drawContours(mask_obstacles, [mask_obstacle], 0, (255, 255, 255), -1)
