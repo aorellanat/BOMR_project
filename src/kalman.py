@@ -51,8 +51,8 @@ class ExtendedKalmanFilter:
         F = np.array([[1,0,-v*np.sin(theta)*self.dt, np.cos(theta)*self.dt, 0],
                       [0,1,v*np.cos(theta)*self.dt,np.sin(theta)*self.dt, 0],
                       [0,0,1,0,self.dt],
-                      [0,0,0,1,0],
-                      [0,0,0,0,1]])
+                      [0,0,0,0,0],
+                      [0,0,0,0,0]])
         
         return F
     
