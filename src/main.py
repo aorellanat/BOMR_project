@@ -16,7 +16,7 @@ REAL_MAP_WIDTH_CM = 145
 MAP_MAX_HEIGHT = 600
 MAP_MAX_WIDTH = 800
 
-PADDING_OBSTACLES = 50
+PADDING_OBSTACLES = 70
 
 # -------- Kalman filter constants -------- #
 dt = 0.1
