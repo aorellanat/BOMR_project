@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
-
-from path_planning import *
+import math
 
 
 def preprocess_map(frame):
@@ -18,7 +17,6 @@ def preprocess_obstacles(frame):
 
 
 def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
-    print('Detecting map...')
     img_gray = preprocess_map(frame)
 
     # Create the aruco dictionary and detector
@@ -52,6 +50,13 @@ def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
                 continue
 
         return map_coords
+
+
+def fix_map_perspective(frame, map_coords, map_max_width, map_max_height):
+    pts2 = np.float32([[0, 0], [map_max_width, 0], [map_max_width, map_max_height], [0, map_max_height]])
+    matrix = cv2.getPerspectiveTransform(map_coords, pts2)
+    map_frame = cv2.warpPerspective(frame, matrix, (map_max_width, map_max_height))
+    return map_frame
 
 
 def detect_obstacles_and_goal(frame, padding_obstacles):
@@ -90,7 +95,6 @@ def detect_obstacles_and_goal(frame, padding_obstacles):
                 cv2.drawContours(mask_obstacles, [mask_obstacle], 0, (255, 255, 255), -1)
                 obstacle_contours.append(approx)
 
-    print(f'Number of obstacles: {len(obstacle_contours)}')
     return obstacle_contours, mask_obstacles, goal_coords
 
 
@@ -127,7 +131,7 @@ def detect_thymio(frame, draw_aruco=False):
     corners, ids, rejected = detector.detectMarkers(img_gray)
 
     thymio_found = False
-    thymio_coords = [0,0]
+    thymio_coords = [0, 0]
     thymio_angle = 0
 
     if ids is not None:
@@ -138,28 +142,49 @@ def detect_thymio(frame, draw_aruco=False):
                     cv2.aruco.drawDetectedMarkers(frame, [corners], aruco_id)
 
                 corners = np.squeeze(corners)
-                tl = corners[0]
-                tr = corners[1]
+                # An aruco has 4 corners ordered in clockwise order, and start from the top left corner
+                # Each corner is an array of 2 elements: x and y coordinates
+                tl = corners[0] # top left
+                tr = corners[1] # top right
+                br = corners[2]	# bottom right
+                bl = corners[3]	# bottom left
 
-                top_mid = (int((tl[0] + tr[0]) // 2), int((tl[1] + tr[1]) // 2))
+                # Compute the thymio center point by averaging the top left and bottom right corners
+                thymio_center_x = int((corners[0][0] + corners[2][0]) / 2)
+                thymio_center_y = int((corners[0][1] + corners[2][1]) / 2)
+                thymio_coords = [thymio_center_x, thymio_center_y]
+                cv2.circle(frame, tuple(thymio_coords), 7, (255, 0, 0), -1)
 
-                thymio_center_x = int((corners[0][0] + corners[2][0]) // 2)
-                thymio_center_y = int((corners[0][1] + corners[2][1]) // 2)
+                #  ---------------- Please modify the angle calculation as needed ----------------
+                # Angle cuadrant 1 should be 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
+                # Reference: https://github.com/anish-natekar/OpenCV_ArUco_Angle_Estimation/blob/main/aruco_library.py
 
-                thymio_coords = (thymio_center_x, thymio_center_y)
-                cv2.circle(frame, thymio_coords, 7, (255, 0, 0), -1)
+                # Compute the top middle point
+                top_middle = (int((tl[0] + tr[0]) / 2), -int((tl[1] + tr[1]) / 2))
 
-                # Angle calculation, please modify it as you need
-                c_o = top_mid[0] - thymio_center_x
-                c_a = top_mid[1] - thymio_center_y
-                thymio_angle = np.degrees(np.arctan2(c_a, c_o))
+                # Compute the center of the aruco with negative y axis
+                centre = (tl[0] + tr[0] + bl[0] + br[0]) / 4, -((tl[1] + tr[1] + bl[1] + br[1]) / 4)
+                try:
+                    thymio_angle = math.degrees(np.arctan((top_middle[1] - centre[1]) / (top_middle[0] - centre[0])))
+                except:
+                    # Tangent has asymptote at 90 and 270 degrees
+                    if top_middle[1] > centre[1]:
+                        thymio_angle = 90
+                    elif top_middle[1] < centre[1]:
+                        thymio_angle = 270
+                
+                if top_middle[0] >= centre[0] and top_middle[1] < centre[1]:
+                    thymio_angle = 360 + thymio_angle
+                elif top_middle[0] < centre[0]:
+                    thymio_angle = 180 + thymio_angle
 
-                # angles cuadrants are 1: 0-(-90), cuadrant 2: (-90) - (-180), cuadrant 3: 180-90, cuadrant 4: 90-0
-                # angles cuadrants should be 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
-                cv2.putText(frame, f'Thymio angle: {thymio_angle:.4f}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 4)
-                cv2.arrowedLine(frame, thymio_coords, top_mid, (0, 255, 0), 7, tipLength=0.5)
-    
+                top_middle = (top_middle[0], -top_middle[1])
+                cv2.arrowedLine(frame, tuple(thymio_coords), top_middle, (0, 255, 0), 7, tipLength=0.5)
+                # cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                # cv2.putText(frame, f'Thymio angle in degrees: {thymio_angle:.2f}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+
                 thymio_found = True
+                thymio_angle = math.radians(thymio_angle)
 
     return thymio_found, thymio_coords, thymio_angle
 
@@ -170,128 +195,8 @@ def convert_pixel_to_cm(pixel_coords, real_map_width, real_map_height, map_width
     y_cm = ((map_height_pixels - y) * real_map_height) / map_height_pixels
     return x_cm, y_cm
 
-
-def main():
-    # -------- Constants -------- #
-    CAMERA_ID = 0
-
-    REAL_MAP_HEIGHT_CM = 84
-    REAL_MAP_WIDTH_CM = 88.5
-
-    MAP_MAX_HEIGHT = 600
-    MAP_MAX_WIDTH = 800
-
-    PADDING_OBSTACLES = 30
-    # -------- Variables -------- #
-    map_detection = False
-    obstacles_detection = False
-    path_planning = False
-    start_motion = False
-
-    map_coords = []
-    obstacles_contours = []
-
-    goal_coords = None
-
-    thymio_found = False
-    thymio_coords = []
-    thymio_angle = None
-
-    path = []
-
-    mask_obstacles = None
-
-    camera = cv2.VideoCapture(CAMERA_ID)
-    # -------- Main loop -------- #
-    while True:
-        ret, frame = camera.read()
-        if not ret:
-            break
-
-        # Step 1: Detect the map
-        if map_detection:
-            map_coords = detect_map(frame, MAP_MAX_WIDTH, MAP_MAX_HEIGHT, draw_arucos=True)
-            if len(map_coords) == 0:
-                print(f'No map detected: only {len(map_coords)} corners found')
-
-            map_detection = False
-            obstacles_detection = True
-
-        if len(map_coords) == 4:
-            # Draw the map contour
-            cv2.polylines(frame, [map_coords.astype(np.int32)], True, (0, 255, 0), 2)
-
-            # Perspective transformation
-            pts2 = np.float32([[0, 0], [MAP_MAX_WIDTH, 0], [MAP_MAX_WIDTH, MAP_MAX_HEIGHT], [0, MAP_MAX_HEIGHT]])
-            matrix = cv2.getPerspectiveTransform(map_coords, pts2)
-            map_frame = cv2.warpPerspective(frame, matrix, (MAP_MAX_WIDTH, MAP_MAX_HEIGHT))
-
-            # Step 2: Detect the obstacles inside the map and the goal
-            if obstacles_detection:
-                obstacles_contours, mask_obstacles, goal_coords = detect_obstacles_and_goal(map_frame, PADDING_OBSTACLES)
-                obstacles_detection = False
-            
-            if len(obstacles_contours) > 0:
-                draw_obstacles(map_frame, obstacles_contours)
-
-            if goal_coords:
-                draw_goal(map_frame, goal_coords)
-
-            thymio_found, thymio_coords, thymio_angle = detect_thymio(map_frame)
-
-            # Step 3: Path planning
-            if path_planning:
-                if thymio_found and goal_coords:
-                    obstacle_vertices = get_obstacle_vertices(obstacles_contours)
-                    path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
-                else:
-                    print(f'It was not possible to detect the path planning. Thymio: {thymio_found}, Goal: {goal_coords}')
-                path_planning = False
-
-            # Step 4: Init the project
-            if start_motion:
-                print('Starting the project...')
-                thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
-                print(f'Thymio coordinates in cm: {thymio_coords_cm}')
-                # ------> Important: Here you have the position, and angle of the thymio
-
-
-            if len(path) > 0:
-                draw_path(path, map_frame)
-
-            # Reshape map before display it
-            map_frame = cv2.resize(map_frame, (500, 400))
-            cv2.imshow('Map', map_frame)
-
-        if thymio_found:
-            cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
-            cv2.putText(frame, f'Thymio angle rad: {thymio_angle:.4f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
-            cv2.putText(frame, f'Thymio angle deg: {np.degrees(thymio_angle):.4f}', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (50, 50, 50), 3)
-
-        cv2.imshow('frame', frame)
-
-        # ---------- Keyboard options ---------- #
-        # 1. Detect the map, obstacles and goal
-        if cv2.waitKey(1) & 0xFF == ord('m'):
-            map_detection = True
-
-        # 2. Path planning
-        if cv2.waitKey(1) & 0xFF == ord('p'):
-            path_planning = True
-            print('Key p pressed')
-
-        # 3. Start the project
-        if cv2.waitKey(1) & 0xFF == ord('s'):
-            start_motion = True
-
-        # 4. Quit the program
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            print('Closing the program...')
-            break
-
-    camera.release()
-    cv2.destroyAllWindows()
-
-
-if __name__ == '__main__':
-    main()
+def convert_cm_to_pixel(cm_coords, real_map_width, real_map_height, map_width_pixels, map_height_pixels):
+    x_cm, y_cm = cm_coords
+    x = (x_cm * map_width_pixels) / real_map_width
+    y = map_height_pixels - (y_cm * map_height_pixels) / real_map_height
+    return int(x), int(y)
