@@ -226,7 +226,7 @@ def main():
                             cv2.putText(map_frame, f'{mc.control_mode}, Obstacle detcted on {mc.local_nav.wall_on}, turning', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                         if mc.local_nav.mode =="wall_following":
                             cv2.putText(map_frame, f'{mc.control_mode}, Trying to move along the wall on {mc.local_nav.wall_on}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                        cv2.putText(map_frame, f'Entrance angle: {mc.alpha_entrance:.2f}, current angle {theta:.2f}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                        cv2.putText(map_frame, f'Entrance angle: {mc.alpha_entrance:.2f}, current angle {theta:.2f}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     thymio.node.send_set_variables(motors(ul, ur))
                     # if counter % 10 == 0:s
                     #     print(f"motor input = {next_target[0]:.2f}, {next_target[1]:.2f}")

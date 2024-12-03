@@ -43,16 +43,16 @@ class ExtendedKalmanFilter:
         self.X[0] = x + v*np.cos(theta)*self.dt 
         self.X[1] = y + v*np.sin(theta)*self.dt
         self.X[2] = self.clip_theta(theta + w * self.dt)
-        self.X[3] = v_ 
-        self.X[4] = w_
+        self.X[3] = v 
+        self.X[4] = w
 
     def compute_F(self):
         x,y,theta,v,w = self.X
         F = np.array([[1,0,-v*np.sin(theta)*self.dt, np.cos(theta)*self.dt, 0],
                       [0,1,v*np.cos(theta)*self.dt,np.sin(theta)*self.dt, 0],
                       [0,0,1,0,self.dt],
-                      [0,0,0,0,0],
-                      [0,0,0,0,0]])
+                      [0,0,0,1,0],
+                      [0,0,0,0,1]])
         
         return F
     
