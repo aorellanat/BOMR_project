@@ -1,7 +1,7 @@
 import numpy as np
 from utils import *
 import matplotlib.pyplot as plt
-NOISE_COV_VW = np.array([[ 0.00817597, -0.00065952],
+NOISE_COV_VW = 0.5*np.array([[ 0.00817597, -0.00065952],
                             [-0.00065952,  0.00036237]]) # from calibration.ipynb
 NOISE_COV_CAMERA = 0.001*np.eye(3)
 NOISE_COV_CAMERA_BLOCKED=9999999*np.eye(3)

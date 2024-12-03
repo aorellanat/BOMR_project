@@ -12,7 +12,7 @@ def preprocess_map(frame):
 
 def preprocess_obstacles(frame):
     img_gray = preprocess_map(frame)
-    canny_img = cv2.Canny(img_gray, 50, 150)
+    canny_img = cv2.Canny(img_gray, 100, 150)
     return canny_img
 
 
@@ -199,4 +199,9 @@ def convert_cm_to_pixel(cm_coords, real_map_width, real_map_height, map_width_pi
     x_cm, y_cm = cm_coords
     x = (x_cm * map_width_pixels) / real_map_width
     y = map_height_pixels - (y_cm * map_height_pixels) / real_map_height
+    return int(x), int(y)
+def convert_cm_length_to_pixel(cm_coords, real_map_width, real_map_height, map_width_pixels, map_height_pixels):
+    x_cm, y_cm = cm_coords
+    x = (x_cm * map_width_pixels) / real_map_width
+    y = (y_cm * map_height_pixels) / real_map_height
     return int(x), int(y)

@@ -25,8 +25,3 @@ def from_vw_to_u(v,w):
     ulur = A_inv @ np.array([v,w]) 
     return int(ulur[0]), int(ulur[1]) # returns ul, ur as int
 
-# v,w = 3, 0.2
-# print(from_vw_to_u(v,w))
-
-x = [False, False, False]
-print(not any(x))

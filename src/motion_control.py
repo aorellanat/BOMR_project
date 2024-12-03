@@ -16,7 +16,7 @@ class motion_controller:
                 self.y_entrance = y
                 self.alpha_entrance = theta
         elif self.control_mode == "local_avoidance":
-            get_back_to_path = self.activate_path_following(x,y)
+            get_back_to_path = self.activate_path_following(x,y, theta)
             if get_back_to_path:
                 print("getting back to path activated")
                 self.control_mode = "get_back_to_path"
@@ -26,11 +26,12 @@ class motion_controller:
                 self.control_mode = "path_following"
                 print("path following activated activated")
         return self.control_mode == "local_avoidance"
-    def activate_path_following(self, x, y):
+    def activate_path_following(self, x, y, theta):
         dy = y - self.y_entrance
         dx = x - self.x_entrance
         alpha = np.arctan2(dy, dx)
-        d_alpha = (alpha - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
+        d_alpha = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
+        #d_alpha = (alpha - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
         return ( abs(d_alpha) < 0.1 and np.sqrt(dy**2 + dx**2) > 5 ) # if alpha is small enough, assume that Thymio is back on track
     def find_how_go (self,x,y,theta,x_goal,y_goal):
 

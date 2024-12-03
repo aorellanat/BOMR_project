@@ -10,8 +10,8 @@ from tdmclient import ClientAsync, aw
 # -------- Computer vision constants -------- #
 CAMERA_ID = 1
 
-REAL_MAP_HEIGHT_CM = 123
-REAL_MAP_WIDTH_CM = 145
+REAL_MAP_HEIGHT_CM = 112
+REAL_MAP_WIDTH_CM = 121
 
 MAP_MAX_HEIGHT = 600
 MAP_MAX_WIDTH = 800
@@ -124,7 +124,6 @@ def main():
                     print(f"kidnapping, {prox_ground_delta[0]}")
                     if prox_ground_delta[0] > 700:
                         kidnapping = False
-                        mc.control_mode = "path_following"
                         print("kidnapping finished")
                         continue
                 if thymio_found and goal_coords and not kidnapping:
@@ -145,9 +144,10 @@ def main():
                         kalman_filter_initialized = True
                     start_motion=True
                     path_planning = False
+                    mc.control_mode = "path_following"
                 else:
                     # print(f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}')
-                    cv2.putText(map_frame, f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}', (500,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}', (400,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     start_motion=False
                 
 
@@ -185,8 +185,19 @@ def main():
                     ekf.predict_and_update(u,z)
                     x,y,theta,v,w = ekf.get_X()
                     ekf_pixel = convert_cm_to_pixel((x,y), REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
+                    arrow_end = convert_cm_to_pixel((x + 5*np.cos(theta), y + 5*np.sin(theta)), REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
                     x_target, y_target = next_target
-                    cv2.circle(map_frame, ekf_pixel, 7, (0, 0,255), -1)
+
+                    #draw estimated state and variance of thymio
+                    cv2.circle(map_frame, ekf_pixel, 7, (255, 0, 255), -1)
+                    cv2.arrowedLine(map_frame, ekf_pixel, arrow_end, (255,0,255), 7, tipLength=0.5)
+                    xy_variance = ekf.P[0:2, 0:2]
+                    eigenvalues, eigenvectors = np.linalg.eig(xy_variance)
+                    ellipse_axis_length = convert_cm_length_to_pixel(eigenvalues,REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
+                    ellipse_angle = np.arctan2(eigenvectors[0][1], eigenvectors[0][0])
+                    ellipse_angle = np.rad2deg(-ellipse_angle)
+                    cv2.ellipse(map_frame, ekf_pixel, ellipse_axis_length, ellipse_angle, 0, 360, (0,255,255), 5)
+
                     #  check if next_target is reached
                     target_reached = np.linalg.norm(np.array([x - next_target[0], y - next_target[1]])) < epsilon
                     if target_reached:
@@ -200,14 +211,24 @@ def main():
                     # in the end, should return desired v and w
                     mc.set_mode(prox_horizontal, x, y, theta)
                     ul, ur = mc.compute_control(x, y, theta, next_target[0], next_target[1], prox_horizontal)
+                    if (mc.control_mode == "get_back_to_path"):
+                        path_planning = True
+
                     cv2.putText(map_frame, f'Camera: {x_camera:.2f},{y_camera:.2f}, {theta_camera:.2f}', (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    cv2.putText(map_frame, f'EKF: {x:.2f},{y:.2f}, {theta:.2f}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    cv2.putText(map_frame, f'Next target: {x_target:.2f}, {y_target:.2f}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    cv2.putText(map_frame, f'Control input: {ul}, {ur}', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    cv2.putText(map_frame, f'Thymio found from camera: {thymio_found}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    cv2.putText(map_frame, f'{mc.control_mode}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'EKF   : {x:.2f},{y:.2f}, {theta:.2f}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'Control input: {ul}, {ur}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'Thymio found from camera: {thymio_found}', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    if mc.control_mode == "path_following":
+                        cv2.putText(map_frame, f'{mc.control_mode}, Next target: {x_target:.2f}, {y_target:.2f}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    
+                    elif mc.control_mode == "local_avoidance":
+                        if mc.local_nav.mode =="turning":
+                            cv2.putText(map_frame, f'{mc.control_mode}, Obstacle detcted on {mc.local_nav.wall_on}, turning', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                        if mc.local_nav.mode =="wall_following":
+                            cv2.putText(map_frame, f'{mc.control_mode}, Trying to move along the wall on {mc.local_nav.wall_on}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                        cv2.putText(map_frame, f'Entrance angle: {mc.alpha_entrance:.2f}, current angle {theta:.2f}', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     thymio.node.send_set_variables(motors(ul, ur))
-                    # if counter % 10 == 0:
+                    # if counter % 10 == 0:s
                     #     print(f"motor input = {next_target[0]:.2f}, {next_target[1]:.2f}")
                     aw(thymio.client.sleep(dt))
                     counter += 1
