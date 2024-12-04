@@ -6,6 +6,7 @@ class motion_controller:
         self.control_mode = "path_following"
         self.local_nav = local_avoidance.local_nav()
     def set_mode(self, prox_horizontal,x,y,theta): # x,y,theta from ekf
+        recompute_global_path = False
         if self.control_mode == "path_following":
             activate_local_avoidance = local_avoidance.check_obstacle(prox_horizontal)
             if activate_local_avoidance:
@@ -20,18 +21,23 @@ class motion_controller:
             if get_back_to_path:
                 print("getting back to path activated")
                 self.control_mode = "get_back_to_path"
+                self.x_exit = x
+                self.y_exit = y
+                # recompute_global_path = True
         elif self.control_mode == "get_back_to_path":
-            dtheta = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
-            if abs(dtheta) < 0.1: # has recovered original heading
+            #dtheta = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
+            distance = np.sqrt(x - self.x_exit, y - self.y_exit)
+            if distance > 3: # has moved far enough from exit point
                 self.control_mode = "path_following"
+                recompute_global_path = True
                 print("path following activated activated")
-        return self.control_mode == "local_avoidance"
+        return recompute_global_path
     def activate_path_following(self, x, y, theta):
         dy = y - self.y_entrance
         dx = x - self.x_entrance
         alpha = np.arctan2(dy, dx)
-        d_alpha = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
-        #d_alpha = (alpha - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
+        #d_alpha = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
+        d_alpha = (alpha - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
         return ( abs(d_alpha) < 0.1 and np.sqrt(dy**2 + dx**2) > 5 ) # if alpha is small enough, assume that Thymio is back on track
     def find_how_go (self,x,y,theta,x_goal,y_goal):
 

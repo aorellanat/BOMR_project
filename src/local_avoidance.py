@@ -37,12 +37,12 @@ class local_nav:
         elif self.mode == "wall_following":
             if self.wall_on == "right":
                 if all(np.array(prox_horizontal[2:]) < 150): # not seeing the wall on right, turning right
-                    v, w = 3, -0.15
+                    v, w = 3, -0.25
                 else: # seeing the wall, move and turn slightly left
                     v, w = 3, 0.3
             if self.wall_on == "left":
                 if all(np.array(prox_horizontal[0:3]) < 150): # not seeing the wall on left, turning left
-                    v, w = 3, 0.15
+                    v, w = 3, 0.25
                 else: # seeing the wall, move and turn slightly right
                     v, w = 3, -0.3
 

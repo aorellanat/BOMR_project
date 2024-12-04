@@ -209,10 +209,8 @@ def main():
                             next_target = path.pop(0)
 
                     # in the end, should return desired v and w
-                    mc.set_mode(prox_horizontal, x, y, theta)
+                    path_planning = mc.set_mode(prox_horizontal, x, y, theta)
                     ul, ur = mc.compute_control(x, y, theta, next_target[0], next_target[1], prox_horizontal)
-                    if (mc.control_mode == "get_back_to_path"):
-                        path_planning = True
 
                     cv2.putText(map_frame, f'Camera: {x_camera:.2f},{y_camera:.2f}, {theta_camera:.2f}', (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     cv2.putText(map_frame, f'EKF   : {x:.2f},{y:.2f}, {theta:.2f}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
@@ -226,7 +224,9 @@ def main():
                             cv2.putText(map_frame, f'{mc.control_mode}, Obstacle detcted on {mc.local_nav.wall_on}, turning', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                         if mc.local_nav.mode =="wall_following":
                             cv2.putText(map_frame, f'{mc.control_mode}, Trying to move along the wall on {mc.local_nav.wall_on}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                        cv2.putText(map_frame, f'Entrance angle: {mc.alpha_entrance:.2f}, current angle {theta:.2f}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    elif mc.control_mode == "get_back_to_path":
+                        cv2.putText(map_frame, f'{mc.control_mode}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+
                     thymio.node.send_set_variables(motors(ul, ur))
                     # if counter % 10 == 0:s
                     #     print(f"motor input = {next_target[0]:.2f}, {next_target[1]:.2f}")
