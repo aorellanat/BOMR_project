@@ -5,8 +5,8 @@ import math
 
 def preprocess_map(frame):
     img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    img_median = cv2.medianBlur(img_gray, 3)
-    bilateral_img = cv2.bilateralFilter(img_median, 9, 75, 75)
+    img_blur = cv2.GaussianBlur(img_gray, (3, 3), 0)
+    bilateral_img = cv2.bilateralFilter(img_blur, 9, 75, 75)
     return bilateral_img
 
 
@@ -16,7 +16,7 @@ def preprocess_obstacles(frame):
     return canny_img
 
 
-def detect_map(frame, map_max_width, map_max_height, draw_arucos=False):
+def detect_map(frame, draw_arucos=False):
     img_gray = preprocess_map(frame)
 
     # Create the aruco dictionary and detector
@@ -69,7 +69,7 @@ def detect_obstacles_and_goal(frame, padding_obstacles):
     contours, hierarchy = cv2.findContours(canny_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     for i, contour in enumerate(contours):
-        if hierarchy[0][i][3] != -1 and cv2.contourArea(contour) > 1000:
+        if hierarchy[0][i][3] != -1 and cv2.contourArea(contour) > 5000:
             epsilon = 0.01 * cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, epsilon, True).squeeze()
 
@@ -89,23 +89,18 @@ def detect_obstacles_and_goal(frame, padding_obstacles):
                     vector = vertex - centroid
                     unit_vector = vector / np.linalg.norm(vector)
 
-                    mask_obstacle[j] = vertex + (unit_vector * (4*padding_obstacles //5))
+                    mask_obstacle[j] = vertex + (unit_vector * (9*padding_obstacles //10))
                     approx[j] = vertex + unit_vector * padding_obstacles
 
                 cv2.drawContours(mask_obstacles, [mask_obstacle], 0, (255, 255, 255), -1)
                 obstacle_contours.append(approx)
 
     # Add border to mask to prevent errors when detecting the path
-    border_size = 10
-    mask_obstacles = cv2.copyMakeBorder(
-        mask_obstacles, 
-        top=border_size, 
-        bottom=border_size, 
-        left=border_size, 
-        right=border_size, 
-        borderType=cv2.BORDER_CONSTANT,
-        value=[255, 255, 255]
-    )
+    map_height, map_with, _ = mask_obstacles.shape
+    cv2.line(mask_obstacles, (1, 1), (map_with - 1, 1), (255, 255, 255), thickness=1)
+    cv2.line(mask_obstacles, (1, 1), (1, map_height - 1), (255, 255, 255), thickness=1)
+    cv2.line(mask_obstacles, (1, map_height - 1), (map_with - 1, map_height - 1), (255, 255, 255), thickness=1)
+    cv2.line(mask_obstacles, (map_with - 1, 1), (map_with - 1, map_height - 1), (255, 255, 255), thickness=1)
     cv2.imshow('mask_obstacles', mask_obstacles)
 
     return obstacle_contours, mask_obstacles, goal_coords
@@ -157,12 +152,12 @@ def detect_thymio(frame, draw_aruco=False):
                 corners = np.squeeze(corners)
                 # An aruco has 4 corners ordered in clockwise order, and start from the top left corner
                 # Each corner is an array of 2 elements: x and y coordinates
-                tl = corners[0] # top left
-                tr = corners[1] # top right
-                br = corners[2]	# bottom right
-                bl = corners[3]	# bottom left
+                tl = corners[0]
+                tr = corners[1]
+                br = corners[2]
+                bl = corners[3]
 
-                # Compute the thymio center point by averaging the top left and bottom right corners
+                # Thymio center point is get by averaging the top left and bottom right corners
                 thymio_center_x = int((corners[0][0] + corners[2][0]) / 2)
                 thymio_center_y = int((corners[0][1] + corners[2][1]) / 2)
                 thymio_coords = [thymio_center_x, thymio_center_y]
@@ -177,7 +172,7 @@ def detect_thymio(frame, draw_aruco=False):
                 try:
                     thymio_angle = math.degrees(np.arctan((top_middle[1] - centre[1]) / (top_middle[0] - centre[0])))
                 except:
-                    # Tangent has asymptote at 90 and 270 degrees
+                    # Tangent has asymptote at 90 and 270 degrees, so we need to handle these cases
                     if top_middle[1] > centre[1]:
                         thymio_angle = 90
                     elif top_middle[1] < centre[1]:
@@ -215,4 +210,4 @@ def convert_cm_length_to_pixel(cm_coords, real_map_width, real_map_height, map_w
     x_cm, y_cm = cm_coords
     x = (x_cm * map_width_pixels) / real_map_width
     y = (y_cm * map_height_pixels) / real_map_height
-    return int(x), int(y)
+    return int(x),int(y)

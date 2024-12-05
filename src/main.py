@@ -91,7 +91,7 @@ def main():
 
         # Step 1: Detect the map
         if map_detection:
-            map_coords = detect_map(frame, MAP_MAX_WIDTH, MAP_MAX_HEIGHT, draw_arucos=True)
+            map_coords = detect_map(frame, draw_arucos=True)
             if len(map_coords) == 0:
                 print(f'No map detected: only {len(map_coords)} corners found')
 
@@ -200,7 +200,7 @@ def main():
                 ellipse_angle = np.arctan2(eigenvectors[0][1], eigenvectors[0][0])
                 ellipse_angle = 90- np.rad2deg(-ellipse_angle)
                 cv2.ellipse(map_frame, ekf_pixel, ellipse_axis_length, ellipse_angle, 0, 360, (0,255,255), 5)
-                cv2.putText(map_frame, f'counterclockwise : {np.cross(eigenvectors[0], eigenvectors[1]) > 0})', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                # cv2.putText(map_frame, f'counterclockwise : {np.cross(eigenvectors[0], eigenvectors[1]) > 0})', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 #  check if next_target is reached
                 target_reached = np.linalg.norm(np.array([x - next_target[0], y - next_target[1]])) < epsilon
                 if target_reached:
