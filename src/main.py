@@ -193,7 +193,7 @@ def main():
                     cv2.arrowedLine(map_frame, ekf_pixel, arrow_end, (255,0,255), 7, tipLength=0.5)
                     xy_variance = ekf.P[0:2, 0:2]
                     eigenvalues, eigenvectors = np.linalg.eig(xy_variance)
-                    ellipse_axis_length = convert_cm_length_to_pixel(eigenvalues,REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
+                    ellipse_axis_length = convert_cm_length_to_pixel(np.sqrt(eigenvalues),REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
                     ellipse_angle = np.arctan2(eigenvectors[0][1], eigenvectors[0][0])
                     ellipse_angle = np.rad2deg(-ellipse_angle)
                     cv2.ellipse(map_frame, ekf_pixel, ellipse_axis_length, ellipse_angle, 0, 360, (0,255,255), 5)

@@ -13,4 +13,3 @@ def from_vw_to_u(v,w):
     A_inv = np.linalg.inv(A)
     ulur = A_inv @ np.array([v,w]) 
     return int(ulur[0]), int(ulur[1]) # returns ul, ur as int
-

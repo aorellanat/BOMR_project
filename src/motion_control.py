@@ -17,7 +17,7 @@ class motion_controller:
                 self.y_entrance = y
                 self.alpha_entrance = theta
         elif self.control_mode == "local_avoidance":
-            get_back_to_path = self.activate_path_following(x,y, theta)
+            get_back_to_path = self.activate_get_back_to_path(x,y, theta)
             if get_back_to_path:
                 print("getting back to path activated")
                 self.control_mode = "get_back_to_path"
@@ -32,7 +32,7 @@ class motion_controller:
                 recompute_global_path = True
                 print("path following activated activated")
         return recompute_global_path
-    def activate_path_following(self, x, y, theta):
+    def activate_get_back_to_path(self, x, y, theta):
         dy = y - self.y_entrance
         dx = x - self.x_entrance
         alpha = np.arctan2(dy, dx)
