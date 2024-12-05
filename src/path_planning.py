@@ -65,7 +65,6 @@ def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Thresh
     Actual_node = Arrival_node
     while Actual_node!=Starting_node:                                                               ####looks at the end, what is previous node of actual, previous of previous etc....
         Global_path = np.vstack([Global_path, Nodes[int(Previous[Actual_node])]]) 
-        #Global_path.appendleft(Nodes[Actual_node])
         Actual_node= int(Previous[Actual_node])
 
     draw_visibility_graph(
