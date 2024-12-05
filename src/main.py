@@ -10,8 +10,8 @@ from tdmclient import ClientAsync, aw
 # -------- Computer vision constants -------- #
 CAMERA_ID = 1
 
-REAL_MAP_HEIGHT_CM = 112
-REAL_MAP_WIDTH_CM = 121
+REAL_MAP_HEIGHT_CM = 92
+REAL_MAP_WIDTH_CM = 133
 
 MAP_MAX_HEIGHT = 600
 MAP_MAX_WIDTH = 800
@@ -26,7 +26,7 @@ measurement_dim=5
 control_dim=2
 
 
-# ------ Utility function to set the motors information ------ #å
+# ------ Utility function to set the motors information ------ #
 def motors(left, right):
     return {
         "motor.left.target": [left],
@@ -131,23 +131,25 @@ def main():
 
                     global_path = compute_global_path(thymio_coords, goal_coords, obstacle_vertices, mask_obstacles)
                     if global_path is None:
-                        cv2.putText(map_frame, f'Thymio inside obstacle, place again', (500,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                        continue
-                    path = global_path.copy().tolist()
-                    path = [convert_pixel_to_cm(target, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT) for target in path]
-                    next_target = path.pop(0)
-                    # Initialize the Kalman filter, need to run only once
-                    if not kalman_filter_initialized:
-                        thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
-                        initial_state = np.array([thymio_coords_cm[0], thymio_coords_cm[1], thymio_angle, 0, 0]) # x, y, theta, v, w
-                        ekf.initialize_X(initial_state)
-                        kalman_filter_initialized = True
-                    start_motion=True
-                    path_planning = False
-                    mc.control_mode = "path_following"
+                        cv2.putText(map_frame, f'No feasible path found', (400,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                        start_motion=False
+                    else: #path is found
+                        path = global_path.copy().tolist()
+                        path = [convert_pixel_to_cm(target, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT) for target in path]
+                        next_target = path.pop(0)
+                        # Initialize the Kalman filter, need to run only once
+                        if not kalman_filter_initialized:
+                            thymio_coords_cm = convert_pixel_to_cm(thymio_coords, REAL_MAP_WIDTH_CM, REAL_MAP_HEIGHT_CM, MAP_MAX_WIDTH, MAP_MAX_HEIGHT)
+                            initial_state = np.array([thymio_coords_cm[0], thymio_coords_cm[1], thymio_angle, 0, 0]) # x, y, theta, v, w
+                            ekf.initialize_X(initial_state)
+                            kalman_filter_initialized = True
+                        start_motion=True
+                        path_planning = False
+                        mc.control_mode = "path_following"
                 else:
                     # print(f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}')
-                    cv2.putText(map_frame, f'Trying to find path, Thymio found {thymio_found}, Kidnapping {kidnapping}', (400,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'Recomputing path', (400,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                    cv2.putText(map_frame, f'Thymio found {thymio_found}, Kidnapping {kidnapping}', (400,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                     start_motion=False
                 
 
@@ -243,7 +245,7 @@ def main():
             if goal_coords:
                 draw_goal(map_frame, goal_coords)
 
-            if len(global_path) > 0:
+            if global_path is not None and len(global_path) > 0:
                 draw_path(global_path, map_frame)
 
             if len(map_coords) == 4:

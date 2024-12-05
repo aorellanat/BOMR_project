@@ -45,6 +45,11 @@ def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Thresh
 
     while Visited_nodes[Arrival_node]!=True:
             Unvisited_nodes = np.where(Visited_nodes == False)[0]           ## unvisited indices
+            ######
+            if(np.all(np.isinf(Distance_from_start[Unvisited_nodes]))):
+                print("No path found within "+ str(round((time.time() -Starting_time),2)) +"seconds. Please check the feabiliy of the graph.")
+                return None
+            #####
             Actual_node = Unvisited_nodes[np.argmin(Distance_from_start[Unvisited_nodes])]  ##minimal distance of the unvisited 
             for Neighbour_node in range(Number_nodes):   ##Comparaison avec d'autres noeuds accessibles
                     if Connectivity_matrix[min(Neighbour_node, Actual_node), max(Neighbour_node, Actual_node)] == True:
