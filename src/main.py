@@ -112,8 +112,6 @@ def main():
 
             # Every iteration check if thymio is detected and get its information
             thymio_found, thymio_coords, thymio_angle = detect_thymio(map_frame)
-        if(mc.control_mode == "get_back_to_path"):
-            print("map coords 4 is ok")
 
         # Step 2: Path planning
         if path_planning:
@@ -151,9 +149,7 @@ def main():
                 cv2.putText(map_frame, f'Recomputing path', (400,20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 cv2.putText(map_frame, f'Thymio found {thymio_found}, Kidnapping {kidnapping}', (400,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 start_motion=False
-            
-        if(mc.control_mode == "get_back_to_path"):
-            print("path planning is ok")
+        
 
         # Step 3: Start motion
         if start_motion:
@@ -200,7 +196,7 @@ def main():
                 ellipse_angle = np.arctan2(eigenvectors[0][1], eigenvectors[0][0])
                 ellipse_angle = 90- np.rad2deg(-ellipse_angle)
                 cv2.ellipse(map_frame, ekf_pixel, ellipse_axis_length, ellipse_angle, 0, 360, (0,255,255), 5)
-                # cv2.putText(map_frame, f'counterclockwise : {np.cross(eigenvectors[0], eigenvectors[1]) > 0})', (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                
                 #  check if next_target is reached
                 target_reached = np.linalg.norm(np.array([x - next_target[0], y - next_target[1]])) < epsilon
                 if target_reached:
@@ -213,12 +209,8 @@ def main():
 
                 # in the end, should return desired v and w
                 path_planning = mc.set_mode(prox_horizontal, x, y, theta)
-                if(mc.control_mode == "get_back_to_path"):
-                    print("set mode is ok")
                 ul, ur = mc.compute_control(x, y, theta, next_target[0], next_target[1], prox_horizontal)
-                if(mc.control_mode == "get_back_to_path"):
-                    print("compute control is ok")
-                    print(f"path planing = {path_planning}")
+
                 cv2.putText(map_frame, f'Camera: {x_camera:.2f},{y_camera:.2f}, {theta_camera:.2f}', (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 cv2.putText(map_frame, f'EKF   : {x:.2f},{y:.2f}, {theta:.2f}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 cv2.putText(map_frame, f'Control input: {ul}, {ur}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
@@ -233,11 +225,8 @@ def main():
                         cv2.putText(map_frame, f'{mc.control_mode}, Trying to move along the wall on {mc.local_nav.wall_on}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 elif mc.control_mode == "get_back_to_path":
                     cv2.putText(map_frame, f'{mc.control_mode}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                    print("cv2 putText is ok")
 
                 thymio.node.send_set_variables(motors(ul, ur))
-                # if counter % 10 == 0:s
-                #     print(f"motor input = {next_target[0]:.2f}, {next_target[1]:.2f}")
                 aw(thymio.client.sleep(dt))
                 counter += 1
             else:
@@ -247,24 +236,19 @@ def main():
         # ---------- Display the frames ---------- #
         if len(obstacles_contours) > 0:
             draw_obstacles(map_frame, obstacles_contours)
-        if(mc.control_mode == "get_back_to_path"):
-                    print("draw obstacles ok")
+
         if goal_coords:
             draw_goal(map_frame, goal_coords)
-        if(mc.control_mode == "get_back_to_path"):
-            print("draw obstacles ok")
+
         if len(global_path) > 0:
             draw_path(global_path, map_frame)
-        if(mc.control_mode == "get_back_to_path"):
-            print("draw path ok")
+
         if len(map_coords) == 4:
             # map_frame = cv2.resize(map_frame, (500, 400))
             cv2.imshow('Map', map_frame)
-        if(mc.control_mode == "get_back_to_path"):
-            print("Map show ok")
+
         cv2.imshow('Frame', frame)
-        if(mc.control_mode == "get_back_to_path"):
-            print("Frame show ok")
+
         # ---------- Keyboard options ---------- #
         if cv2.waitKey(1) & 0xFF == ord('m'):
             print('Detecting map...')

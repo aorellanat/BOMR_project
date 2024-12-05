@@ -47,35 +47,3 @@ class local_nav:
                     v, w = 3, -0.3
 
         return v,w
-
-
-
-# def calculate_speed_local_nav(prox_horizontal):
-#     if any(np.array(prox_horizontal[2:])):
-#     spLeft = -50
-#     spRight= 50
-
-#     if(prox_horizontal[0] >1000 and prox_horizontal[1] > 500):
-#         spLeft = 50
-#         spRight = -50
-
-#     if (prox_horizontal[0] >1000 and prox_horizontal[1] < 500):
-#         spLeft = 100
-#         spRight = 100
-#     if (prox_horizontal[0] <500 and prox_horizontal[1] <500):
-#         spLeft = -50
-#         spRight = 50
-
-#     if(prox_horizontal[4] >1000 and prox_horizontal[3] > 500):
-#         spLeft = -50
-#         spRight = 50
-
-#     if (prox_horizontal[4] >1000 and prox_horizontal[3] < 500):
-#         spLeft = 100
-#         spRight = 100
-#     if (prox_horizontal[4] <500 and prox_horizontal[3] <500):
-#         spLeft = 50
-#         spRight = -50
-
-#     return spLeft,spRight
-
