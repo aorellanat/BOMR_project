@@ -95,6 +95,19 @@ def detect_obstacles_and_goal(frame, padding_obstacles):
                 cv2.drawContours(mask_obstacles, [mask_obstacle], 0, (255, 255, 255), -1)
                 obstacle_contours.append(approx)
 
+    # Add border to mask to prevent errors when detecting the path
+    border_size = 10
+    mask_obstacles = cv2.copyMakeBorder(
+        mask_obstacles, 
+        top=border_size, 
+        bottom=border_size, 
+        left=border_size, 
+        right=border_size, 
+        borderType=cv2.BORDER_CONSTANT,
+        value=[255, 255, 255]
+    )
+    cv2.imshow('mask_obstacles', mask_obstacles)
+
     return obstacle_contours, mask_obstacles, goal_coords
 
 
@@ -155,14 +168,11 @@ def detect_thymio(frame, draw_aruco=False):
                 thymio_coords = [thymio_center_x, thymio_center_y]
                 cv2.circle(frame, tuple(thymio_coords), 7, (255, 0, 0), -1)
 
-                #  ---------------- Please modify the angle calculation as needed ----------------
-                # Angle cuadrant 1 should be 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
+                # Angle cuadrant 1: 0-90, cuadrant 2: 90-180, cuadrant 3: 180-270, cuadrant 4: 270-360
                 # Reference: https://github.com/anish-natekar/OpenCV_ArUco_Angle_Estimation/blob/main/aruco_library.py
-
-                # Compute the top middle point
                 top_middle = (int((tl[0] + tr[0]) / 2), -int((tl[1] + tr[1]) / 2))
 
-                # Compute the center of the aruco with negative y axis
+                # The center of the aruco with negative y axis
                 centre = (tl[0] + tr[0] + bl[0] + br[0]) / 4, -((tl[1] + tr[1] + bl[1] + br[1]) / 4)
                 try:
                     thymio_angle = math.degrees(np.arctan((top_middle[1] - centre[1]) / (top_middle[0] - centre[0])))
@@ -180,8 +190,6 @@ def detect_thymio(frame, draw_aruco=False):
 
                 top_middle = (top_middle[0], -top_middle[1])
                 cv2.arrowedLine(frame, tuple(thymio_coords), top_middle, (0, 255, 0), 7, tipLength=0.5)
-                # cv2.putText(frame, f'Thymio (x,y): {thymio_coords}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                # cv2.putText(frame, f'Thymio angle in degrees: {thymio_angle:.2f}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
                 thymio_found = True
                 thymio_angle = math.radians(thymio_angle)
@@ -195,11 +203,14 @@ def convert_pixel_to_cm(pixel_coords, real_map_width, real_map_height, map_width
     y_cm = ((map_height_pixels - y) * real_map_height) / map_height_pixels
     return x_cm, y_cm
 
+
 def convert_cm_to_pixel(cm_coords, real_map_width, real_map_height, map_width_pixels, map_height_pixels):
     x_cm, y_cm = cm_coords
     x = (x_cm * map_width_pixels) / real_map_width
     y = map_height_pixels - (y_cm * map_height_pixels) / real_map_height
     return int(x), int(y)
+
+
 def convert_cm_length_to_pixel(cm_coords, real_map_width, real_map_height, map_width_pixels, map_height_pixels):
     x_cm, y_cm = cm_coords
     x = (x_cm * map_width_pixels) / real_map_width
