@@ -1,8 +1,8 @@
 import numpy as np
 from utils import *
 import matplotlib.pyplot as plt
-NOISE_COV_VW = np.array([[ 0.00817597, -0.00065952],
-                            [-0.00065952,  0.00036237]]) # from calibration.ipynb
+NOISE_COV_VW = np.array([[ 0.02273349, -0.0022228 ],
+                            [-0.0022228,   0.00148037]]) # from calibration.ipynb
 NOISE_COV_CAMERA = 0.001*np.eye(3)
 NOISE_COV_CAMERA_BLOCKED=9999999*np.eye(3)
 PROCESS_COV = 0.01*np.eye(5)
@@ -43,16 +43,16 @@ class ExtendedKalmanFilter:
         self.X[0] = x + v*np.cos(theta)*self.dt 
         self.X[1] = y + v*np.sin(theta)*self.dt
         self.X[2] = self.clip_theta(theta + w * self.dt)
-        self.X[3] = v_ 
-        self.X[4] = w_
+        self.X[3] = v 
+        self.X[4] = w
 
     def compute_F(self):
         x,y,theta,v,w = self.X
         F = np.array([[1,0,-v*np.sin(theta)*self.dt, np.cos(theta)*self.dt, 0],
                       [0,1,v*np.cos(theta)*self.dt,np.sin(theta)*self.dt, 0],
                       [0,0,1,0,self.dt],
-                      [0,0,0,0,0],
-                      [0,0,0,0,0]])
+                      [0,0,0,1,0],
+                      [0,0,0,0,1]])
         
         return F
     
