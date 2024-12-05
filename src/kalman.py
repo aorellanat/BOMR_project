@@ -39,7 +39,7 @@ class ExtendedKalmanFilter:
     def move(self, u):
         assert(u.shape[0] == 2) # u is np.array containing v_,w_
         x,y,theta,v,w = self.X
-        v_, w_ = u
+        # v_, w_ = u
         self.X[0] = x + v*np.cos(theta)*self.dt 
         self.X[1] = y + v*np.sin(theta)*self.dt
         self.X[2] = self.clip_theta(theta + w * self.dt)

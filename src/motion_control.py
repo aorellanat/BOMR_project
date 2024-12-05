@@ -26,7 +26,7 @@ class motion_controller:
                 # recompute_global_path = True
         elif self.control_mode == "get_back_to_path":
             #dtheta = (theta - self.alpha_entrance + np.pi) % (2*np.pi) - np.pi
-            distance = np.sqrt(x - self.x_exit, y - self.y_exit)
+            distance = np.sqrt((x - self.x_exit)**2 +  (y - self.y_exit)**2)
             if distance > 3: # has moved far enough from exit point
                 self.control_mode = "path_following"
                 recompute_global_path = True

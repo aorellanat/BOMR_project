@@ -48,7 +48,7 @@ def compute_global_path(Starting_node_pos, Arrival_node_pos, Nodes, Mask, Thresh
             ######
             if(np.all(np.isinf(Distance_from_start[Unvisited_nodes]))):
                 print("No path found within "+ str(round((time.time() -Starting_time),2)) +"seconds. Please check the feabiliy of the graph.")
-                return None
+                return []
             #####
             Actual_node = Unvisited_nodes[np.argmin(Distance_from_start[Unvisited_nodes])]  ##minimal distance of the unvisited 
             for Neighbour_node in range(Number_nodes):   ##Comparaison avec d'autres noeuds accessibles
@@ -88,7 +88,7 @@ def draw_path(path, image):
         cv2.line(image, tuple(path[i]), tuple(path[i+1]), (0, 255, 0), 2)
 
 
-def draw_visibility_graph(Mask, Nodes, Connectivity_matrix, Starting_node, Arrival_node, Previous, width, height):
+def draw_visibility_graph(Mask, Nodes, Connectivity_matrix, Starting_node, Arrival_node, Previous, width, height):  ##### helped from chatgpt
     visibility_graph = Mask.copy()
     Nodes = np.array(Nodes)
 
